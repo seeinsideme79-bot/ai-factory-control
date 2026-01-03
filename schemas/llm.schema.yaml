@@ -1,0 +1,43 @@
+# AI Factory - LLM Config Schema v1.0
+type: object
+required:
+  - provider
+  - model
+  - api_key_env
+
+properties:
+  provider:
+    type: string
+    enum: [anthropic, openai, openrouter, local]
+
+  model:
+    type: string
+    examples:
+      - anthropic/claude-sonnet-4-20250514
+      - openai/gpt-4o
+      - google/gemma-3-27b-it:free
+      - meta-llama/llama-3.1-8b-instruct:free
+
+  api_key_env:
+    type: string
+    description: Environment variable name for API key
+    examples:
+      - OPENROUTER_API_KEY
+      - ANTHROPIC_API_KEY
+      - OPENAI_API_KEY
+
+  fallback_model:
+    type: string
+    description: Fallback model if primary fails
+
+  max_tokens:
+    type: integer
+    default: 4096
+    minimum: 256
+    maximum: 32000
+
+  temperature:
+    type: number
+    default: 0.7
+    minimum: 0
+    maximum: 2

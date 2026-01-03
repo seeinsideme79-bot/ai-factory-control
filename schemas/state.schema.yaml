@@ -1,0 +1,116 @@
+# AI Factory - State Schema v1.0
+type: object
+required:
+  - meta
+  - phase
+  - version
+  - blocking
+  - actors
+  - last_event
+  - next_action
+
+properties:
+  meta:
+    type: object
+    required: [project_id, repo_url, created_at]
+    properties:
+      project_id:
+        type: string
+        pattern: "^product-[a-z0-9-]+$"
+      repo_url:
+        type: string
+        format: uri
+      created_at:
+        type: string
+        format: date
+
+  phase:
+    type: string
+    enum: [idea, prp, development, test, human_validation, release]
+
+  version:
+    type: object
+    properties:
+      prp:
+        type: string
+      code:
+        type: string
+      docs:
+        type: string
+
+  blocking:
+    type: object
+    properties:
+      is_blocked:
+        type: boolean
+      reason:
+        type: string
+        enum: [null, test_failure, awaiting_human, agent_error]
+      since:
+        type: string
+        format: date-time
+
+  actors:
+    type: object
+    properties:
+      current:
+        type: string
+        enum: [prp_agent, dev_agent, test_agent, doc_agent, orchestrator_agent, human]
+      awaiting_human:
+        type: boolean
+
+  last_event:
+    type: object
+    properties:
+      agent:
+        type: string
+      action:
+        type: string
+      timestamp:
+        type: string
+        format: date-time
+      result:
+        type: string
+        enum: [success, failure, partial]
+
+  next_action:
+    type: object
+    properties:
+      agent:
+        type: string
+      action:
+        type: string
+      requires_human_approval:
+        type: boolean
+
+  artifacts:
+    type: object
+    properties:
+      prp:
+        type: string
+      tests:
+        type: string
+      docs:
+        type: string
+
+  health:
+    type: object
+    properties:
+      test_pass_rate:
+        type: number
+        minimum: 0
+        maximum: 1
+      revision_count:
+        type: integer
+      last_human_feedback:
+        type: string
+
+  automation:
+    type: object
+    properties:
+      allowed:
+        type: boolean
+      auto_agents:
+        type: array
+        items:
+          type: string

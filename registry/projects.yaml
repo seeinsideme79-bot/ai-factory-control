@@ -1,0 +1,17 @@
+# AI Factory - Projects Registry
+# Tüm projelerin merkezi listesi
+
+version: "1.0"
+last_updated: null
+
+projects: []
+
+# Örnek proje girişi:
+# projects:
+#   - id: product-example
+#     name: Example Product
+#     repo_url: https://github.com/seeinsideme79-bot/product-example
+#     created_at: 2026-01-03
+#     phase: idea
+#     status: active  # active | paused | archived
+#     description: Kısa açıklama
