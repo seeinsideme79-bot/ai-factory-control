@@ -1,43 +1,52 @@
-# AI Factory - LLM Config Schema v1.0
+# AI Factory - LLM Config Schema v2.0
+# Değişiklik: Profile-based config desteği (Y3 kararı)
+#
+# Kullanım Seçenekleri:
+#   1. Sadece profile: { profile: "gemma-free" }
+#   2. Full config: { provider, model, api_key_env, ... }
+#   3. Dosya yoksa: default_profile kullanılır (llm.profiles.yaml'dan)
+
 type: object
-required:
-  - provider
-  - model
-  - api_key_env
 
-properties:
-  provider:
-    type: string
-    enum: [anthropic, openai, openrouter, local]
+# En az biri gerekli: profile VEYA (provider + model)
+oneOf:
+  - required: [profile]
+    properties:
+      profile:
+        type: string
+        description: "Profile name from llm.profiles.yaml"
+        examples:
+          - gemma-free
+          - sonnet-openrouter
+          - local-llama
+  - required: [provider, model]
+    properties:
+      provider:
+        type: string
+        enum: [anthropic, openai, openrouter, ollama]
+      model:
+        type: string
+        examples:
+          - anthropic/claude-sonnet-4-20250514
+          - openai/gpt-4o
+          - google/gemma-3-27b-it:free
+          - llama3:8b
+      api_key_env:
+        type: string
+        description: "Environment variable name for API key (null for local)"
+        examples:
+          - OPENROUTER_API_KEY
+          - ANTHROPIC_API_KEY
+          - OPENAI_API_KEY
+      max_tokens:
+        type: integer
+        default: 4096
+        minimum: 256
+        maximum: 32000
+      temperature:
+        type: number
+        default: 0.7
+        minimum: 0
+        maximum: 2
 
-  model:
-    type: string
-    examples:
-      - anthropic/claude-sonnet-4-20250514
-      - openai/gpt-4o
-      - google/gemma-3-27b-it:free
-      - meta-llama/llama-3.1-8b-instruct:free
-
-  api_key_env:
-    type: string
-    description: Environment variable name for API key
-    examples:
-      - OPENROUTER_API_KEY
-      - ANTHROPIC_API_KEY
-      - OPENAI_API_KEY
-
-  fallback_model:
-    type: string
-    description: Fallback model if primary fails
-
-  max_tokens:
-    type: integer
-    default: 4096
-    minimum: 256
-    maximum: 32000
-
-  temperature:
-    type: number
-    default: 0.7
-    minimum: 0
-    maximum: 2
+# Not: fallback_model ileride eklenecek (şimdilik implement edilmedi)

@@ -1,4 +1,6 @@
-# AI Factory - State Schema v1.0
+# AI Factory - State Schema v1.1
+# Değişiklik: last_event.model alanı eklendi (C1 kararı)
+
 type: object
 required:
   - meta
@@ -8,7 +10,6 @@ required:
   - actors
   - last_event
   - next_action
-
 properties:
   meta:
     type: object
@@ -23,11 +24,9 @@ properties:
       created_at:
         type: string
         format: date
-
   phase:
     type: string
     enum: [idea, prp, development, test, human_validation, release]
-
   version:
     type: object
     properties:
@@ -37,7 +36,6 @@ properties:
         type: string
       docs:
         type: string
-
   blocking:
     type: object
     properties:
@@ -49,7 +47,6 @@ properties:
       since:
         type: string
         format: date-time
-
   actors:
     type: object
     properties:
@@ -58,7 +55,6 @@ properties:
         enum: [prp_agent, dev_agent, test_agent, doc_agent, orchestrator_agent, human]
       awaiting_human:
         type: boolean
-
   last_event:
     type: object
     properties:
@@ -72,7 +68,9 @@ properties:
       result:
         type: string
         enum: [success, failure, partial]
-
+      model:
+        type: string
+        description: "LLM model used for this action (e.g., google/gemma-3-27b-it:free)"
   next_action:
     type: object
     properties:
@@ -82,7 +80,6 @@ properties:
         type: string
       requires_human_approval:
         type: boolean
-
   artifacts:
     type: object
     properties:
@@ -92,7 +89,6 @@ properties:
         type: string
       docs:
         type: string
-
   health:
     type: object
     properties:
@@ -104,7 +100,6 @@ properties:
         type: integer
       last_human_feedback:
         type: string
-
   automation:
     type: object
     properties:

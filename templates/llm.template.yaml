@@ -1,6 +1,12 @@
-provider: openrouter
-model: google/gemma-3-27b-it:free
-api_key_env: OPENROUTER_API_KEY
-fallback_model: google/gemma-3-27b-it:free
-max_tokens: 4096
-temperature: 0.7
+# AI Factory - Project LLM Config
+# Bu dosya proje oluşturulurken otomatik kopyalanır
+#
+# Seçenek 1: Profile kullan (önerilen)
+profile: gemma-free
+
+# Seçenek 2: Full config (profile satırını sil, aşağıdakileri aç)
+# provider: openrouter
+# model: google/gemma-3-27b-it:free
+# api_key_env: OPENROUTER_API_KEY
+# max_tokens: 4096
+# temperature: 0.7

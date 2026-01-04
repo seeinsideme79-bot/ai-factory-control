@@ -1,0 +1,111 @@
+# AI Factory - LLM Profiles Configuration
+# Konum: ai-factory-control/config/llm.profiles.yaml
+#
+# Kullanım:
+#   - Projeler config/llm.yaml içinde "profile: <isim>" ile referans verir
+#   - Proje llm.yaml yoksa default_profile kullanılır
+#   - Proje tam config verirse (provider + model) bu dosya bypass edilir
+
+default_profile: gemma-free
+
+profiles:
+  # ============================================
+  # FREE MODELS (Test & Development)
+  # ============================================
+  
+  gemma-free:
+    provider: openrouter
+    model: google/gemma-3-27b-it:free
+    api_key_env: OPENROUTER_API_KEY
+    max_tokens: 2048
+    temperature: 0.7
+    description: "Free model - edge case testi ve geliştirme için"
+
+  llama-free:
+    provider: openrouter
+    model: meta-llama/llama-3.1-8b-instruct:free
+    api_key_env: OPENROUTER_API_KEY
+    max_tokens: 2048
+    temperature: 0.7
+    description: "Free model - alternatif test"
+
+  # ============================================
+  # PAID MODELS (Production)
+  # ============================================
+  
+  sonnet-openrouter:
+    provider: openrouter
+    model: anthropic/claude-sonnet-4-20250514
+    api_key_env: OPENROUTER_API_KEY
+    max_tokens: 4096
+    temperature: 0.7
+    description: "Paid - dengeli maliyet/kalite"
+
+  opus-openrouter:
+    provider: openrouter
+    model: anthropic/claude-opus-4-20250514
+    api_key_env: OPENROUTER_API_KEY
+    max_tokens: 8192
+    temperature: 0.7
+    description: "Paid - en yüksek kalite, yüksek maliyet"
+
+  gpt4o-mini:
+    provider: openai
+    model: gpt-4o-mini
+    api_key_env: OPENAI_API_KEY
+    max_tokens: 4096
+    temperature: 0.7
+    description: "Paid - hızlı ve ucuz"
+
+  gpt4o:
+    provider: openai
+    model: gpt-4o
+    api_key_env: OPENAI_API_KEY
+    max_tokens: 4096
+    temperature: 0.7
+    description: "Paid - yüksek kalite"
+
+  # ============================================
+  # LOCAL MODELS (Offline/Privacy)
+  # ============================================
+  
+  local-llama:
+    provider: ollama
+    model: llama3:8b
+    api_key_env: null
+    max_tokens: 2048
+    temperature: 0.7
+    description: "Local - offline çalışma"
+
+  local-codellama:
+    provider: ollama
+    model: codellama:13b
+    api_key_env: null
+    max_tokens: 2048
+    temperature: 0.5
+    description: "Local - kod üretimi için optimize"
+
+# ============================================
+# PROVIDER ENDPOINTS (Orchestrator için referans)
+# ============================================
+
+providers:
+  openrouter:
+    base_url: "https://openrouter.ai/api/v1/chat/completions"
+    auth_header: "Authorization"
+    auth_prefix: "Bearer "
+    
+  openai:
+    base_url: "https://api.openai.com/v1/chat/completions"
+    auth_header: "Authorization"
+    auth_prefix: "Bearer "
+    
+  anthropic:
+    base_url: "https://api.anthropic.com/v1/messages"
+    auth_header: "x-api-key"
+    auth_prefix: ""
+    
+  ollama:
+    base_url: "http://localhost:11434/api/chat"
+    auth_header: null
+    auth_prefix: null
