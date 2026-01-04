@@ -1,19 +1,14 @@
 # AI Factory - Projects Registry
-# Tüm projelerin merkezi listesi
-
 version: "1.0"
 last_updated: 2026-01-04
 
 projects:
   - id: product-hello-world
-    name: Hello World CLI
-    repo_url: https://github.com/seeinsideme79-bot/product-hello-world
-    created_at: 2026-01-04
+    repo: https://github.com/seeinsideme79-bot/product-hello-world
     phase: release
-    status: active
-    description: AI Factory sisteminin ilk test projesi - basit selamlama CLI aracı
+    created_at: 2026-01-04
 
-- id: product-test-automation
-  repo: https://github.com/seeinsideme79-bot/product-test-automation
-  phase: idea
-  created_at: 2026-01-04
+  - id: product-test-automation
+    repo: https://github.com/seeinsideme79-bot/product-test-automation
+    phase: prp
+    created_at: 2026-01-04

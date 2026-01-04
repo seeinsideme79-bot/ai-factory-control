@@ -95,10 +95,10 @@ EOF
 echo "[5/6] Registry güncelleniyor..."
 cat >> "$CONTROL_PLANE_DIR/registry/projects.yaml" << EOF
 
-- id: $PROJECT_NAME
-  repo: https://github.com/seeinsideme79-bot/$PROJECT_NAME
-  phase: idea
-  created_at: $DATE
+  - id: $PROJECT_NAME
+    repo: https://github.com/seeinsideme79-bot/$PROJECT_NAME
+    phase: idea
+    created_at: $DATE
 EOF
 
 echo "[6/6] Commit ve push..."
