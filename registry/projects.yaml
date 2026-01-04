@@ -12,3 +12,8 @@ projects:
     phase: release
     status: active
     description: AI Factory sisteminin ilk test projesi - basit selamlama CLI aracı
+
+- id: product-test-automation
+  repo: https://github.com/seeinsideme79-bot/product-test-automation
+  phase: idea
+  created_at: 2026-01-04
