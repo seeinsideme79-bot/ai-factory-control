@@ -26,6 +26,7 @@ if [ -d "$PROJECT_DIR" ]; then
 fi
 
 echo "[1/6] GitHub repo oluşturuluyor..."
+cd "$PROJECTS_DIR"
 gh repo create "seeinsideme79-bot/$PROJECT_NAME" --private --clone --description "AI Factory Project: $PROJECT_NAME"
 cd "$PROJECT_DIR"
 
