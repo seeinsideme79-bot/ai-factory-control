@@ -9,6 +9,6 @@ projects:
     name: Hello World CLI
     repo_url: https://github.com/seeinsideme79-bot/product-hello-world
     created_at: 2026-01-04
-    phase: prp
+    phase: release
     status: active
     description: AI Factory sisteminin ilk test projesi - basit selamlama CLI aracı
