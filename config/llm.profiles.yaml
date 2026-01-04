@@ -5,6 +5,10 @@
 #   - Projeler config/llm.yaml içinde "profile: <isim>" ile referans verir
 #   - Proje llm.yaml yoksa default_profile kullanılır
 #   - Proje tam config verirse (provider + model) bu dosya bypass edilir
+#
+# Token Alanları:
+#   - max_context_tokens: Model'in toplam context limiti (input + output)
+#   - max_output_tokens: API'ye gönderilecek max_tokens parametresi
 
 default_profile: gemma-free
 
@@ -17,7 +21,8 @@ profiles:
     provider: openrouter
     model: google/gemma-3-27b-it:free
     api_key_env: OPENROUTER_API_KEY
-    max_tokens: 2048
+    max_context_tokens: 8192
+    max_output_tokens: 2048
     temperature: 0.7
     description: "Free model - edge case testi ve geliştirme için"
 
@@ -25,7 +30,8 @@ profiles:
     provider: openrouter
     model: meta-llama/llama-3.1-8b-instruct:free
     api_key_env: OPENROUTER_API_KEY
-    max_tokens: 2048
+    max_context_tokens: 8192
+    max_output_tokens: 2048
     temperature: 0.7
     description: "Free model - alternatif test"
 
@@ -37,7 +43,8 @@ profiles:
     provider: openrouter
     model: anthropic/claude-sonnet-4-20250514
     api_key_env: OPENROUTER_API_KEY
-    max_tokens: 4096
+    max_context_tokens: 200000
+    max_output_tokens: 8192
     temperature: 0.7
     description: "Paid - dengeli maliyet/kalite"
 
@@ -45,7 +52,8 @@ profiles:
     provider: openrouter
     model: anthropic/claude-opus-4-20250514
     api_key_env: OPENROUTER_API_KEY
-    max_tokens: 8192
+    max_context_tokens: 200000
+    max_output_tokens: 8192
     temperature: 0.7
     description: "Paid - en yüksek kalite, yüksek maliyet"
 
@@ -53,7 +61,8 @@ profiles:
     provider: openai
     model: gpt-4o-mini
     api_key_env: OPENAI_API_KEY
-    max_tokens: 4096
+    max_context_tokens: 128000
+    max_output_tokens: 4096
     temperature: 0.7
     description: "Paid - hızlı ve ucuz"
 
@@ -61,7 +70,8 @@ profiles:
     provider: openai
     model: gpt-4o
     api_key_env: OPENAI_API_KEY
-    max_tokens: 4096
+    max_context_tokens: 128000
+    max_output_tokens: 4096
     temperature: 0.7
     description: "Paid - yüksek kalite"
 
@@ -73,7 +83,8 @@ profiles:
     provider: ollama
     model: llama3:8b
     api_key_env: null
-    max_tokens: 2048
+    max_context_tokens: 8192
+    max_output_tokens: 2048
     temperature: 0.7
     description: "Local - offline çalışma"
 
@@ -81,7 +92,8 @@ profiles:
     provider: ollama
     model: codellama:13b
     api_key_env: null
-    max_tokens: 2048
+    max_context_tokens: 16384
+    max_output_tokens: 4096
     temperature: 0.5
     description: "Local - kod üretimi için optimize"
 
