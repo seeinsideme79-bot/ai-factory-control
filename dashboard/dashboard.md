@@ -7,9 +7,8 @@
 | Proje | Phase | Blocked | Test Pass | Next Action | Awaiting |
 |-------|-------|---------|-----------|-------------|----------|
 | product-hello-world | ❓ | ❓ | - | State dosyası bulunamadı | - |
-| product-test-automation | release | 🟢 No | ✅ 100% |  | 👤 Human |
+| product-test-automation | ❓ | ❓ | - | State dosyası bulunamadı | - |
 
 ## Özet
 
 - **Toplam Proje:** 2
-- **release:** 1
