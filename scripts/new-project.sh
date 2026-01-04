@@ -67,11 +67,7 @@ cat > prp/prp_history.md << 'EOF'
 | 0.0 | - | Başlangıç |
 EOF
 
-cat > tests/test_specs.md << 'EOF'
-# Test Spesifikasyonları
-
-[Test Agent tarafından oluşturulacak]
-EOF
+cp "$CONTROL_PLANE_DIR/templates/test_specs.template.md" tests/test_specs.md
 
 cat > docs/architecture.md << 'EOF'
 # Mimari Doküman
