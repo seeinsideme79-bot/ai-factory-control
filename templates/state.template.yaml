@@ -1,0 +1,90 @@
+meta:
+  project_id: __PROJECT_ID__
+  repo_url: https://github.com/seeinsideme79-bot/__PROJECT_ID__
+  created_at: __DATE__
+
+phase: idea
+
+version:
+  prp: "0.0"
+  code: "0.0.0"
+  docs: "0.0"
+
+blocking:
+  is_blocked: false
+  reason: null
+  since: null
+
+actors:
+  current: null
+  awaiting_human: true
+
+last_event:
+  agent: null
+  action: "Project created"
+  timestamp: __TIMESTAMP__
+  result: success
+
+next_action:
+  agent: prp_agent
+  action: "Create initial PRP from vision"
+  requires_human_approval: true
+
+artifacts:
+  prp: prp/prp.md
+  tests: tests/test_specs.md
+  docs: docs/architecture.md
+
+health:
+  test_pass_rate: null
+  revision_count: 0
+  last_human_feedback: null
+
+automation:
+  allowed: false
+  auto_agents: []
+meta:
+  project_id: __PROJECT_ID__
+  repo_url: https://github.com/seeinsideme79-bot/__PROJECT_ID__
+  created_at: __DATE__
+
+phase: idea
+
+version:
+  prp: "0.0"
+  code: "0.0.0"
+  docs: "0.0"
+
+blocking:
+  is_blocked: false
+  reason: null
+  since: null
+
+actors:
+  current: null
+  awaiting_human: true
+
+last_event:
+  agent: null
+  action: "Project created"
+  timestamp: __TIMESTAMP__
+  result: success
+
+next_action:
+  agent: prp_agent
+  action: "Create initial PRP from vision"
+  requires_human_approval: true
+
+artifacts:
+  prp: prp/prp.md
+  tests: tests/test_specs.md
+  docs: docs/architecture.md
+
+health:
+  test_pass_rate: null
+  revision_count: 0
+  last_human_feedback: null
+
+automation:
+  allowed: false
+  auto_agents: []
