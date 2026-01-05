@@ -1,6 +1,6 @@
 # AI Factory Dashboard
 
-**Son Güncelleme:** 2026-01-04 20:44
+**Son Güncelleme:** 2026-01-05 14:16
 
 ## Proje Durumları
 
@@ -8,7 +8,8 @@
 |-------|-------|---------|-----------|-------------|----------|
 | product-hello-world | ❓ | ❓ | - | State dosyası bulunamadı | - |
 | product-test-automation | ❓ | ❓ | - | State dosyası bulunamadı | - |
+| product-product-orchestrator-test | ❓ | ❓ | - | State dosyası bulunamadı | - |
 
 ## Özet
 
-- **Toplam Proje:** 2
+- **Toplam Proje:** 3
