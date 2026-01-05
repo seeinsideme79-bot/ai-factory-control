@@ -1,6 +1,6 @@
 # AI Factory - Projects Registry
 version: "1.0"
-last_updated: 2026-01-04
+last_updated: 2026-01-05
 
 projects:
   - id: product-hello-world
@@ -20,5 +20,5 @@ projects:
 
   - id: product-orchestrator-test
     repo: https://github.com/seeinsideme79-bot/product-orchestrator-test
-    phase: idea
+    phase: release
     created_at: 2026-01-05

@@ -10,7 +10,12 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
-PROJECT_NAME="product-$1"
+# Prefix kontrolü: zaten product- ile başlıyorsa ekleme
+if [[ "$1" == product-* ]]; then
+    PROJECT_NAME="$1"
+else
+    PROJECT_NAME="product-$1"
+fi
 PROJECT_DIR="$PROJECTS_DIR/$PROJECT_NAME"
 DATE=$(date +%Y-%m-%d)
 TIMESTAMP=$(date -Iseconds)
