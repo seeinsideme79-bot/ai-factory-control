@@ -1,23 +1,7 @@
 # AI Factory - Projects Registry
 version: "1.0"
 last_updated: 2026-01-05
-
 projects:
-  - id: product-hello-world
-    repo: https://github.com/seeinsideme79-bot/product-hello-world
-    phase: release
-    created_at: 2026-01-04
-
-  - id: product-test-automation
-    repo: https://github.com/seeinsideme79-bot/product-test-automation
-    phase: release
-    created_at: 2026-01-04
-
-  - id: product-product-orchestrator-test
-    repo: https://github.com/seeinsideme79-bot/product-product-orchestrator-test
-    phase: idea
-    created_at: 2026-01-05
-
   - id: product-orchestrator-test
     repo: https://github.com/seeinsideme79-bot/product-orchestrator-test
     phase: release
