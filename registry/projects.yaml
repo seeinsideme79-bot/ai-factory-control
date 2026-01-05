@@ -12,3 +12,8 @@ projects:
     repo: https://github.com/seeinsideme79-bot/product-test-automation
     phase: release
     created_at: 2026-01-04
+
+  - id: product-product-orchestrator-test
+    repo: https://github.com/seeinsideme79-bot/product-product-orchestrator-test
+    phase: idea
+    created_at: 2026-01-05
