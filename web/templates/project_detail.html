@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project_id }} - AI Factory Manager{% endblock %}
+
+{% block content %}
+<!-- Back button -->
+<div class="mb-4">
+    <a href="{{ url_for('index') }}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+        ← Dashboard'a Dön
+    </a>
+</div>
+
+<!-- Project Header -->
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <div class="flex justify-between items-start">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">{{ project_id }}</h1>
+            <p class="mt-1 text-sm text-gray-500">{{ state.meta.repo_url }}</p>
+        </div>
+        <span class="phase-indicator phase-{{ state.phase }}">
+            {{ state.phase }}
+        </span>
+    </div>
+    
+    <!-- Phase Progress -->
+    <div class="mt-6">
+        <div class="flex items-center space-x-2">
+            {% set phases = ['idea', 'prp', 'development', 'test', 'human_validation', 'release'] %}
+            {% for phase in phases %}
+                {% if loop.index0 < phases.index(state.phase) %}
+                    <div class="flex-1 h-2 bg-green-500 rounded"></div>
+                {% elif phase == state.phase %}
+                    <div class="flex-1 h-2 bg-blue-500 rounded"></div>
+                {% else %}
+                    <div class="flex-1 h-2 bg-gray-200 rounded"></div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        <div class="flex justify-between mt-2 text-xs text-gray-500">
+            {% for phase in phases %}
+                <span>{{ phase }}</span>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Agent Actions -->
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">Agent İşlemleri</h2>
+    
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <button onclick="runAgent('prp')" 
+                class="px-4 py-3 bg-blue-50 hover:bg-blue-100 rounded-lg text-blue-700 font-medium text-sm transition">
+            🎯 PRP Agent
+        </button>
+        <button onclick="runAgent('dev')" 
+                class="px-4 py-3 bg-yellow-50 hover:bg-yellow-100 rounded-lg text-yellow-700 font-medium text-sm transition">
+            💻 Dev Agent
+        </button>
+        <button onclick="runAgent('test')" 
+                class="px-4 py-3 bg-orange-50 hover:bg-orange-100 rounded-lg text-orange-700 font-medium text-sm transition">
+            🧪 Test Agent
+        </button>
+        <button onclick="runAgent('doc')" 
+                class="px-4 py-3 bg-purple-50 hover:bg-purple-100 rounded-lg text-purple-700 font-medium text-sm transition">
+            📄 Doc Agent
+        </button>
+    </div>
+    
+    <div id="agent-output" class="mt-4 hidden">
+        <div class="bg-gray-50 rounded-lg p-4">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-sm font-semibold text-gray-700">Agent Çıktısı</h3>
+                <button onclick="document.getElementById('agent-output').classList.add('hidden')" 
+                        class="text-gray-400 hover:text-gray-600">
+                    ✕
+                </button>
+            </div>
+            <pre id="agent-output-content" class="text-xs text-gray-600 whitespace-pre-wrap max-h-96 overflow-y-auto"></pre>
+        </div>
+    </div>
+</div>
+
+<!-- State Info -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Versions -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Versiyonlar</h2>
+        <dl class="space-y-2">
+            <div class="flex justify-between">
+                <dt class="text-sm text-gray-600">PRP:</dt>
+                <dd class="text-sm font-medium text-gray-900">v{{ state.version.prp }}</dd>
+            </div>
+            <div class="flex justify-between">
+                <dt class="text-sm text-gray-600">Code:</dt>
+                <dd class="text-sm font-medium text-gray-900">v{{ state.version.code }}</dd>
+            </div>
+            <div class="flex justify-between">
+                <dt class="text-sm text-gray-600">Docs:</dt>
+                <dd class="text-sm font-medium text-gray-900">v{{ state.version.docs }}</dd>
+            </div>
+        </dl>
+    </div>
+    
+    <!-- Blocking Status -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Durum</h2>
+        {% if state.blocking.is_blocked %}
+            <div class="bg-red-50 rounded-lg p-4">
+                <p class="text-sm font-medium text-red-800">🚫 Blocked</p>
+                <p class="text-sm text-red-600 mt-1">{{ state.blocking.reason }}</p>
+                {% if state.blocking.since %}
+                    <p class="text-xs text-red-500 mt-1">Since: {{ state.blocking.since }}</p>
+                {% endif %}
+            </div>
+        {% else %}
+            <div class="bg-green-50 rounded-lg p-4">
+                <p class="text-sm font-medium text-green-800">✅ Active</p>
+                <p class="text-sm text-green-600 mt-1">Proje aktif ve çalışıyor</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Next Action -->
+<div class="bg-white rounded-lg shadow p-6 mt-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">Sonraki Adım</h2>
+    <div class="bg-blue-50 rounded-lg p-4">
+        <p class="text-sm font-medium text-blue-900">{{ state.next_action.agent }}</p>
+        <p class="text-sm text-blue-700 mt-1">{{ state.next_action.action }}</p>
+        {% if state.next_action.requires_human_approval %}
+            <p class="text-xs text-orange-600 mt-2">⚠️ İnsan onayı gerekiyor</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Last Event -->
+{% if state.last_event %}
+<div class="bg-white rounded-lg shadow p-6 mt-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">Son İşlem</h2>
+    <dl class="space-y-2">
+        <div class="flex justify-between">
+            <dt class="text-sm text-gray-600">Agent:</dt>
+            <dd class="text-sm font-medium text-gray-900">{{ state.last_event.agent }}</dd>
+        </div>
+        <div class="flex justify-between">
+            <dt class="text-sm text-gray-600">Action:</dt>
+            <dd class="text-sm font-medium text-gray-900">{{ state.last_event.action }}</dd>
+        </div>
+        <div class="flex justify-between">
+            <dt class="text-sm text-gray-600">Result:</dt>
+            <dd class="text-sm font-medium {{ 'text-green-600' if state.last_event.result == 'success' else 'text-red-600' }}">
+                {{ state.last_event.result }}
+            </dd>
+        </div>
+        {% if state.last_event.model %}
+        <div class="flex justify-between">
+            <dt class="text-sm text-gray-600">Model:</dt>
+            <dd class="text-sm font-medium text-gray-900">{{ state.last_event.model }}</dd>
+        </div>
+        {% endif %}
+        <div class="flex justify-between">
+            <dt class="text-sm text-gray-600">Timestamp:</dt>
+            <dd class="text-sm font-medium text-gray-900">{{ state.last_event.timestamp }}</dd>
+        </div>
+    </dl>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function runAgent(agent) {
+    const outputDiv = document.getElementById('agent-output');
+    const outputContent = document.getElementById('agent-output-content');
+    
+    outputDiv.classList.remove('hidden');
+    outputContent.textContent = `${agent} çalıştırılıyor...\n`;
+    
+    try {
+        const response = await fetch('/api/run-agent', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                project_id: '{{ project_id }}',
+                agent: agent
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            outputContent.textContent = data.output;
+            // 3 saniye sonra sayfayı yenile
+            setTimeout(() => {
+                location.reload();
+            }, 3000);
+        } else {
+            outputContent.textContent = `Hata: ${data.error}`;
+        }
+    } catch (error) {
+        outputContent.textContent = `Bağlantı hatası: ${error.message}`;
+    }
+}
+</script>
+{% endblock %}

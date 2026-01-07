@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - AI Factory Manager{% endblock %}
+
+{% block content %}
+<!-- System Resources -->
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">Sistem Durumu</h2>
+    
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- RAM Usage -->
+        <div>
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-sm font-medium text-gray-700">RAM Kullanımı</span>
+                <span class="text-sm text-gray-500">{{ resources.ram_used }}/{{ resources.ram_total }} MB</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ resources.ram_percent }}%"></div>
+            </div>
+        </div>
+        
+        <!-- Service Deployments -->
+        <div>
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-sm font-medium text-gray-700">Service Deployments</span>
+                <span class="text-sm text-gray-500">{{ resources.service_count }}/{{ resources.service_max }}</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ (resources.service_count / resources.service_max * 100) if resources.service_max > 0 else 0 }}%"></div>
+            </div>
+        </div>
+        
+        <!-- On-Demand Deployments -->
+        <div>
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-sm font-medium text-gray-700">On-Demand Deployments</span>
+                <span class="text-sm text-gray-500">{{ resources.ondemand_count }}/{{ resources.ondemand_max }}</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ (resources.ondemand_count / resources.ondemand_max * 100) if resources.ondemand_max > 0 else 0 }}%"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Projects List -->
+<div class="bg-white rounded-lg shadow">
+    <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+        <h2 class="text-lg font-semibold text-gray-900">Projeler</h2>
+        <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+            + Yeni Proje
+        </button>
+    </div>
+    
+    <div class="divide-y divide-gray-200">
+        {% if projects %}
+            {% for project in projects %}
+            <div class="px-6 py-4 hover:bg-gray-50 transition">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-3">
+                            <h3 class="text-lg font-medium text-gray-900">
+                                <a href="{{ url_for('project_detail', project_id=project.id) }}" class="hover:text-blue-600">
+                                    {{ project.id }}
+                                </a>
+                            </h3>
+                            
+                            {% if project.state %}
+                                <span class="phase-indicator phase-{{ project.state.phase }}">
+                                    {{ project.state.phase }}
+                                </span>
+                            {% endif %}
+                        </div>
+                        
+                        {% if project.state %}
+                        <div class="mt-2 flex items-center space-x-4 text-sm text-gray-500">
+                            <span>PRP: v{{ project.state.version.prp }}</span>
+                            <span>Code: v{{ project.state.version.code }}</span>
+                            
+                            {% if project.state.blocking.is_blocked %}
+                                <span class="text-red-600 font-medium">
+                                    🚫 Blocked: {{ project.state.blocking.reason }}
+                                </span>
+                            {% else %}
+                                <span class="text-green-600 font-medium">✅ Active</span>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mt-2 text-sm text-gray-500">
+                            Next: {{ project.state.next_action.agent }} - {{ project.state.next_action.action }}
+                            {% if project.state.next_action.requires_human_approval %}
+                                <span class="text-orange-600">(onay bekliyor)</span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="flex space-x-2">
+                        <a href="{{ url_for('project_detail', project_id=project.id) }}" 
+                           class="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium text-gray-700">
+                            Detay
+                        </a>
+                        
+                        {% if project.state and project.state.phase == 'release' %}
+                        <a href="{{ project.repo_url }}" 
+                           target="_blank"
+                           class="px-3 py-2 bg-green-100 hover:bg-green-200 rounded-md text-sm font-medium text-green-700">
+                            GitHub
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="px-6 py-12 text-center">
+                <p class="text-gray-500">Henüz proje yok.</p>
+                <button class="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                    İlk Projeyi Oluştur
+                </button>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Auto-refresh her 30 saniyede
+    setTimeout(() => {
+        location.reload();
+    }, 30000);
+</script>
+{% endblock %}
