@@ -40,41 +40,55 @@ def load_profiles() -> dict:
     return load_yaml(profiles_path)
 
 
-def resolve_llm_config(project_name: str) -> dict:
+def resolve_llm_config(project_name: str, profile_override: str = None) -> dict:
     """
     Proje için LLM config çözümle
     
     Öncelik:
-    1. Proje config/llm.yaml (full config varsa)
-    2. Proje config/llm.yaml (profile referansı varsa) -> profiles.yaml'dan çözümle
-    3. Global default_profile -> profiles.yaml'dan çözümle
+    1. profile_override (CLI --model parametresi)
+    2. Proje config/llm.yaml (full config varsa)
+    3. Proje config/llm.yaml (profile referansı varsa) -> profiles.yaml'dan çözümle
+    4. Global default_profile -> profiles.yaml'dan çözümle
+    
+    Args:
+        project_name: Proje adı
+        profile_override: CLI'dan gelen profile override (opsiyonel)
+    
+    Returns:
+        LLM config dictionary
     """
     profiles_data = load_profiles()
     profiles = profiles_data.get('profiles', {})
     providers = profiles_data.get('providers', {})
     default_profile = profiles_data.get('default_profile', 'gemma-free')
     
-    # Proje llm.yaml kontrol et
-    project_path = get_projects_path() / project_name
-    project_llm_path = project_path / 'config' / 'llm.yaml'
-    project_config = load_yaml(project_llm_path)
-    
-    if project_config:
-        # Full config mi yoksa profile referansı mı?
-        if 'profile' in project_config and 'provider' not in project_config:
-            # Profile referansı
-            profile_name = project_config['profile']
-            if profile_name not in profiles:
-                raise ValueError(f"Unknown profile: {profile_name}")
-            config = profiles[profile_name].copy()
-        else:
-            # Full config
-            config = project_config.copy()
+    # 1. CLI Override varsa direkt kullan
+    if profile_override:
+        if profile_override not in profiles:
+            raise ValueError(f"Unknown profile: {profile_override}")
+        config = profiles[profile_override].copy()
     else:
-        # Default profile kullan
-        if default_profile not in profiles:
-            raise ValueError(f"Default profile not found: {default_profile}")
-        config = profiles[default_profile].copy()
+        # 2. Proje llm.yaml kontrol et
+        project_path = get_projects_path() / project_name
+        project_llm_path = project_path / 'config' / 'llm.yaml'
+        project_config = load_yaml(project_llm_path)
+        
+        if project_config:
+            # Full config mi yoksa profile referansı mı?
+            if 'profile' in project_config and 'provider' not in project_config:
+                # Profile referansı
+                profile_name = project_config['profile']
+                if profile_name not in profiles:
+                    raise ValueError(f"Unknown profile: {profile_name}")
+                config = profiles[profile_name].copy()
+            else:
+                # Full config
+                config = project_config.copy()
+        else:
+            # 3. Default profile kullan
+            if default_profile not in profiles:
+                raise ValueError(f"Default profile not found: {default_profile}")
+            config = profiles[default_profile].copy()
     
     # Provider bilgilerini ekle
     provider_name = config.get('provider')

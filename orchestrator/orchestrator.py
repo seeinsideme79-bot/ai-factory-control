@@ -4,13 +4,13 @@ AI Factory - Orchestrator
 Ana CLI giriş noktası
 
 Kullanım:
-    python3 orchestrator.py <project_name> <agent_type>
-    
+    python3 orchestrator.py <project_name> <agent_type> [--model MODEL]
+
 Örnekler:
     python3 orchestrator.py product-hello-world prp
-    python3 orchestrator.py product-hello-world dev
+    python3 orchestrator.py product-hello-world dev --model sonnet-openrouter
     python3 orchestrator.py product-hello-world test
-    python3 orchestrator.py product-hello-world doc
+    python3 orchestrator.py product-hello-world doc --model gemma-free
 """
 
 import sys
@@ -29,7 +29,6 @@ from agents.dev_agent import DevAgent
 from agents.test_agent import TestAgent
 from agents.doc_agent import DocAgent
 
-
 AGENTS = {
     'prp': PRPAgent,
     'dev': DevAgent,
@@ -45,13 +44,15 @@ def main():
         epilog="""
 Examples:
     python3 orchestrator.py product-hello-world prp
-    python3 orchestrator.py product-hello-world dev
+    python3 orchestrator.py product-hello-world dev --model sonnet-openrouter
     python3 orchestrator.py product-hello-world test
-    python3 orchestrator.py product-hello-world doc
+    python3 orchestrator.py product-hello-world doc --model gemma-free
         """
     )
+    
     parser.add_argument('project', help='Project name (e.g., product-hello-world)')
     parser.add_argument('agent', choices=list(AGENTS.keys()), help='Agent type to run')
+    parser.add_argument('--model', help='LLM profile to use (overrides state default)', metavar='PROFILE')
     parser.add_argument('--dry-run', action='store_true', help='Show what would be done without executing')
     parser.add_argument('--verbose', '-v', action='store_true', help='Verbose output')
     
@@ -59,6 +60,7 @@ Examples:
     
     project_name = args.project
     agent_type = args.agent
+    model_override = args.model
     
     # Proje var mı kontrol et
     project_path = get_projects_path() / project_name
@@ -66,9 +68,32 @@ Examples:
         print(f"❌ Error: Project not found: {project_path}")
         sys.exit(1)
     
+    # Model override logic
+    # Priority: CLI --model > state.agent_models[agent] > global default
+    profile_name = None
+    
+    if model_override:
+        # CLI override
+        profile_name = model_override
+        print(f"🔧 Using CLI model override: {profile_name}")
+    else:
+        # Check state for agent-specific model
+        try:
+            state = load_state(project_name)
+            agent_models = state.get('agent_models', {})
+            agent_key = f"{agent_type}_agent"
+            
+            if agent_key in agent_models:
+                profile_name = agent_models[agent_key]
+                if args.verbose:
+                    print(f"📊 Using state model for {agent_key}: {profile_name}")
+        except Exception as e:
+            if args.verbose:
+                print(f"⚠️ Could not load state for model selection: {e}")
+    
     # LLM config çözümle
     try:
-        llm_config = resolve_llm_config(project_name)
+        llm_config = resolve_llm_config(project_name, profile_name)
     except Exception as e:
         print(f"❌ Error loading LLM config: {e}")
         sys.exit(1)
@@ -80,6 +105,8 @@ Examples:
         print(f"🌐 Provider: {llm_config.get('provider')}")
         print(f"📊 Max context: {llm_config.get('max_context_tokens')}")
         print(f"📝 Max output: {llm_config.get('max_output_tokens')}")
+        if model_override:
+            print(f"⚡ CLI Override: {model_override}")
         print()
     
     # Dry run
@@ -89,6 +116,7 @@ Examples:
             state = load_state(project_name)
             print(f"📊 Current phase: {state.get('phase')}")
             print(f"📊 Current actor: {state.get('actors', {}).get('current')}")
+            print(f"📊 Agent models: {state.get('agent_models', {})}")
         except:
             print("⚠️ Could not load state")
         sys.exit(0)
