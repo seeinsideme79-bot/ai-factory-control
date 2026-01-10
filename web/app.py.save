@@ -13,6 +13,8 @@ from functools import wraps
 import glob
 import json
 
+API_SECRET = "ai-factory-secret-2026-xK9mP2nQ"
+
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-key-change-in-production')
 
@@ -24,9 +26,6 @@ ORCHESTRATOR_SCRIPT = os.path.join(CONTROL_DIR, 'orchestrator', 'orchestrator.py
 
 # Simple auth - tek kullanıcı
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'aifactory2026')
-
-# API Secret for GitHub sync
-API_SECRET = "ai-factory-secret-2026-xK9mP2nQ"
 
 
 def login_required(f):
@@ -94,41 +93,6 @@ def get_system_resources():
             'service_max': 1,
             'ondemand_count': 0,
             'ondemand_max': 2
-        }
-
-
-def load_rejection_analyzer_prompt():
-    """Rejection analyzer prompt'unu dosyadan yükle"""
-    prompt_file = os.path.join(CONTROL_DIR, 'agents', 'templates', 'rejection_analyzer.md')
-    try:
-        with open(prompt_file, 'r', encoding='utf-8') as f:
-            return f.read()
-    except Exception as e:
-        print(f"Error loading rejection analyzer prompt: {e}")
-        # Fallback prompt
-        return """Analyze validation feedback and determine if issues are PRP or CODE.
-Return JSON: {"recommendation": "prp|code", "reasoning": "...", "test_analysis": [...]}"""
-
-
-def load_llm_profile(profile_name='gemma-free'):
-    """LLM profile'ı yükle"""
-    profiles_file = os.path.join(CONTROL_DIR, 'config', 'llm.profiles.yaml')
-    try:
-        with open(profiles_file, 'r') as f:
-            profiles_data = yaml.safe_load(f)
-            profile = profiles_data['profiles'].get(profile_name)
-            if not profile:
-                profile_name = profiles_data.get('default_profile', 'gemma-free')
-                profile = profiles_data['profiles'].get(profile_name)
-            return profile
-    except Exception as e:
-        print(f"Error loading LLM profile: {e}")
-        # Fallback
-        return {
-            'provider': 'openrouter',
-            'model': 'google/gemma-3-27b-it:free',
-            'max_tokens': 2000,
-            'temperature': 0.3
         }
 
 
@@ -514,11 +478,17 @@ def custom_scenarios(project_id):
 @login_required
 def analyze_rejection(project_id):
     """LLM ile rejection feedback analizi"""
+    print(f"=== FUNCTION CALLED: project_id={project_id} ===", flush=True)
+    
     try:
+        print("=== INSIDE TRY BLOCK ===", flush=True)
         import requests
         import re
+        print("=== IMPORTS OK ===", flush=True)
         
         data = request.json
+        print(f"=== DATA: {data} ===", flush=True)
+
         feedback = data.get('feedback', '')
         test_results = data.get('test_results', {})
         
@@ -542,72 +512,61 @@ def analyze_rejection(project_id):
                 }
             })
         
-        # Load prompt template from file
-        prompt_template = load_rejection_analyzer_prompt()
-        
-        # Prepare data for prompt
+        # LLM prompt
         failed_summary = chr(10).join([f"- {t['title']}" for t in failed_tests])
-        
-        # Replace placeholders in template (simple replacement)
-        llm_prompt = prompt_template
-        # Extract just the task portion for the LLM (skip the markdown header)
-        if '## Task' in llm_prompt:
-            llm_prompt = llm_prompt.split('## Task', 1)[1]
-        
-        # Build actual prompt
-        llm_prompt = f"""Analyze validation feedback and failed tests to determine if issues are PRP or CODE.
+        llm_prompt = f"""Analyze validation feedback and failed tests to determine if issues are:
+- PRP (requirements): Missing features, wrong specs, requirement gaps
+- CODE (implementation): Bugs, incorrect implementation of existing requirements
 
-Feedback: {feedback if feedback else 'No feedback provided'}
+CRITICAL: If ANY test requires PRP change, recommend "prp". Only "code" if ALL are implementation bugs.
 
+Feedback: {feedback if feedback else "No feedback provided"}
 Failed Tests:
 {failed_summary}
 
 Return ONLY valid JSON:
-{{"recommendation": "prp|code", "reasoning": "Brief explanation", "test_analysis": [{{"test": "Test name", "category": "prp|code", "reason": "Why"}}]}}"""
-        
-        # Load LLM config from profile
-        llm_config = load_llm_profile()
-        
+{{"recommendation": "prp" or "code", "reasoning": "Brief explanation", "test_analysis": [{{"test": "Test name", "category": "prp|code|both", "reason": "Why"}}]}}"""
+
         # LLM API call
         api_key = os.environ.get('OPENROUTER_API_KEY')
+        print(f"=== API KEY EXISTS: {bool(api_key)} ===", flush=True)
         
         if not api_key:
             return jsonify({'error': 'OpenRouter API key not configured'}), 500
         
-        # Get provider settings
-        provider = llm_config.get('provider', 'openrouter')
-        if provider == 'openrouter':
-            api_url = 'https://openrouter.ai/api/v1/chat/completions'
-        else:
-            return jsonify({'error': f'Unsupported provider: {provider}'}), 500
-        
+        print("=== CALLING LLM API ===", flush=True)
         response = requests.post(
-            api_url,
+            'https://openrouter.ai/api/v1/chat/completions',
             headers={
                 'Authorization': f'Bearer {api_key}',
                 'Content-Type': 'application/json'
             },
             json={
-                'model': llm_config.get('model', 'google/gemma-3-27b-it:free'),
+                'model': 'google/gemma-3-27b-it:free',
                 'messages': [{'role': 'user', 'content': llm_prompt}],
-                'max_tokens': llm_config.get('max_tokens', 2000),
-                'temperature': llm_config.get('temperature', 0.3)
+                'max_tokens': 2000,
+                'temperature': 0.3
             },
             timeout=30
         )
+        
+        print(f"=== API RESPONSE STATUS: {response.status_code} ===", flush=True)
+        print(f"=== API RESPONSE: {response.text[:200]} ===", flush=True)
 
         if response.status_code != 200:
             return jsonify({'error': f'LLM API error: {response.status_code}'}), 500
         
         content = response.json()['choices'][0]['message']['content']
+        print(f"=== LLM CONTENT: {content} ===", flush=True)
         content = re.sub(r'```json\s*|\s*```', '', content).strip()
+        print(f"=== CLEANED CONTENT: {content} ===", flush=True)
 
         analysis = json.loads(content)
         
         return jsonify({'success': True, 'analysis': analysis})
     
     except Exception as e:
-        print(f"Error in rejection analysis: {e}")
+        print(f"=== ERROR: {e} ===")
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
@@ -736,137 +695,6 @@ def health():
         'status': 'ok',
         'timestamp': datetime.now().isoformat()
     })
-
-
-# ===== GitHub Sync API =====
-
-def require_api_key(f):
-    """API key authentication decorator"""
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        api_key = request.headers.get('X-API-Key')
-        if api_key != API_SECRET:
-            return jsonify({'error': 'Unauthorized'}), 401
-        return f(*args, **kwargs)
-    return decorated
-
-
-@app.route('/api/github-sync', methods=['POST'])
-@require_api_key
-def github_sync():
-    """
-    GitHub dosya senkronizasyonu
-    Actions: read, write, commit
-    """
-    try:
-        data = request.json
-        action = data.get('action')
-        
-        if action == 'read':
-            # Dosya oku
-            file_path = data.get('file_path')
-            if not file_path:
-                return jsonify({'error': 'file_path required'}), 400
-            
-            # Path validation - sadece proje klasörü içinde
-            if '..' in file_path or file_path.startswith('/'):
-                return jsonify({'error': 'Invalid file path'}), 400
-            
-            full_path = os.path.join(CONTROL_DIR, file_path)
-            
-            try:
-                with open(full_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                
-                return jsonify({
-                    'success': True,
-                    'file_path': file_path,
-                    'content': content,
-                    'size': len(content)
-                })
-            except FileNotFoundError:
-                return jsonify({'error': f'File not found: {file_path}'}), 404
-            except Exception as e:
-                return jsonify({'error': f'Read error: {str(e)}'}), 500
-        
-        elif action == 'write':
-            # Dosya yaz
-            file_path = data.get('file_path')
-            content = data.get('content')
-            
-            if not file_path or content is None:
-                return jsonify({'error': 'file_path and content required'}), 400
-            
-            # Path validation
-            if '..' in file_path or file_path.startswith('/'):
-                return jsonify({'error': 'Invalid file path'}), 400
-            
-            full_path = os.path.join(CONTROL_DIR, file_path)
-            
-            # Dizin yoksa oluştur
-            os.makedirs(os.path.dirname(full_path), exist_ok=True)
-            
-            try:
-                with open(full_path, 'w', encoding='utf-8') as f:
-                    f.write(content)
-                
-                return jsonify({
-                    'success': True,
-                    'message': f'File {file_path} updated',
-                    'size': len(content)
-                })
-            except Exception as e:
-                return jsonify({'error': f'Write error: {str(e)}'}), 500
-        
-        elif action == 'commit':
-            # Git commit + push
-            message = data.get('message', 'Auto-commit from Claude')
-            
-            try:
-                # Git add
-                result = subprocess.run(
-                    ['git', 'add', '-A'], 
-                    cwd=CONTROL_DIR, 
-                    capture_output=True, 
-                    text=True,
-                    check=True
-                )
-                
-                # Git commit
-                result = subprocess.run(
-                    ['git', 'commit', '-m', message], 
-                    cwd=CONTROL_DIR, 
-                    capture_output=True, 
-                    text=True,
-                    check=True
-                )
-                
-                # Git push
-                result = subprocess.run(
-                    ['git', 'push'], 
-                    cwd=CONTROL_DIR, 
-                    capture_output=True, 
-                    text=True,
-                    check=True
-                )
-                
-                return jsonify({
-                    'success': True,
-                    'message': 'Committed and pushed to GitHub',
-                    'commit_message': message
-                })
-            except subprocess.CalledProcessError as e:
-                error_msg = e.stderr if e.stderr else str(e)
-                return jsonify({
-                    'success': False,
-                    'error': f'Git error: {error_msg}'
-                }), 500
-        
-        else:
-            return jsonify({'error': f'Unknown action: {action}'}), 400
-    
-    except Exception as e:
-        return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 
 if __name__ == '__main__':
