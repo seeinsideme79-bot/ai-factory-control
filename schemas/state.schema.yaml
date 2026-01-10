@@ -1,5 +1,7 @@
-# AI Factory - State Schema v1.1
-# Değişiklik: last_event.model alanı eklendi (C1 kararı)
+# AI Factory - State Schema v1.3
+# Değişiklik geçmişi:
+# v1.1: last_event.model alanı eklendi (C1 kararı)
+# v1.3: agent_models alanı eklendi - Her agent için ayrı model tanımı
 
 type: object
 required:
@@ -10,6 +12,8 @@ required:
   - actors
   - last_event
   - next_action
+  - agent_models
+
 properties:
   meta:
     type: object
@@ -24,9 +28,11 @@ properties:
       created_at:
         type: string
         format: date
+
   phase:
     type: string
     enum: [idea, prp, development, test, human_validation, release]
+
   version:
     type: object
     properties:
@@ -36,6 +42,7 @@ properties:
         type: string
       docs:
         type: string
+
   blocking:
     type: object
     properties:
@@ -47,6 +54,7 @@ properties:
       since:
         type: string
         format: date-time
+
   actors:
     type: object
     properties:
@@ -55,6 +63,7 @@ properties:
         enum: [prp_agent, dev_agent, test_agent, doc_agent, orchestrator_agent, human]
       awaiting_human:
         type: boolean
+
   last_event:
     type: object
     properties:
@@ -71,6 +80,7 @@ properties:
       model:
         type: string
         description: "LLM model used for this action (e.g., google/gemma-3-27b-it:free)"
+
   next_action:
     type: object
     properties:
@@ -80,6 +90,7 @@ properties:
         type: string
       requires_human_approval:
         type: boolean
+
   artifacts:
     type: object
     properties:
@@ -89,6 +100,7 @@ properties:
         type: string
       docs:
         type: string
+
   health:
     type: object
     properties:
@@ -100,6 +112,7 @@ properties:
         type: integer
       last_human_feedback:
         type: string
+
   automation:
     type: object
     properties:
@@ -109,3 +122,29 @@ properties:
         type: array
         items:
           type: string
+
+  agent_models:
+    type: object
+    description: "Default model for each agent. Can be overridden at runtime via UI."
+    properties:
+      prp_agent:
+        type: string
+        description: "LLM profile name for PRP agent (e.g., 'sonnet-openrouter')"
+        default: "gemma-free"
+      dev_agent:
+        type: string
+        description: "LLM profile name for Dev agent"
+        default: "gemma-free"
+      test_agent:
+        type: string
+        description: "LLM profile name for Test agent"
+        default: "gemma-free"
+      doc_agent:
+        type: string
+        description: "LLM profile name for Doc agent"
+        default: "gemma-free"
+      rejection_analyzer:
+        type: string
+        description: "LLM profile name for Rejection Analyzer"
+        default: "gemma-free"
+    additionalProperties: false

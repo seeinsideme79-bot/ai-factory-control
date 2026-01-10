@@ -24,6 +24,7 @@ last_event:
   action: "Project created"
   timestamp: __TIMESTAMP__
   result: success
+  model: null
 
 next_action:
   agent: prp_agent
@@ -43,3 +44,10 @@ health:
 automation:
   allowed: false
   auto_agents: []
+
+agent_models:
+  prp_agent: "gemma-free"
+  dev_agent: "gemma-free"
+  test_agent: "gemma-free"
+  doc_agent: "gemma-free"
+  rejection_analyzer: "gemma-free"
