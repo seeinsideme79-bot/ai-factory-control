@@ -261,6 +261,39 @@ def validation_history(project_id):
                          project_id=project_id,
                          state=state)
 
+@app.route('/api/get-profiles', methods=['GET'])
+@login_required
+def get_profiles():
+    """LLM profiles listesi (API endpoint)"""
+    try:
+        profiles_file = os.path.join(CONTROL_DIR, 'config', 'llm.profiles.yaml')
+        
+        with open(profiles_file, 'r') as f:
+            profiles_data = yaml.safe_load(f)
+        
+        profiles = profiles_data.get('profiles', {})
+        default_profile = profiles_data.get('default_profile', 'gemma-free')
+        
+        # Simplified profile list for UI
+        profile_list = []
+        for name, config in profiles.items():
+            profile_list.append({
+                'name': name,
+                'model': config.get('model', 'Unknown'),
+                'description': config.get('description', ''),
+                'is_default': (name == default_profile)
+            })
+        
+        return jsonify({
+            'success': True,
+            'profiles': profile_list,
+            'default_profile': default_profile
+        })
+    
+    except Exception as e:
+        print(f"Error loading profiles: {e}")
+        return jsonify({'error': str(e)}), 500
+
 
 @app.route('/api/run-agent', methods=['POST'])
 @login_required
@@ -271,11 +304,16 @@ def run_agent():
         project_id = data.get('project_id')
         agent = data.get('agent')
 
+        model_override = data.get('model_override')  # UI'dan gelen model seçimi
+
         if not project_id or not agent:
             return jsonify({'error': 'project_id ve agent gerekli'}), 400
 
         # Orchestrator'ı çalıştır
         cmd = ['python3', ORCHESTRATOR_SCRIPT, project_id, agent]
+        if model_override:
+            cmd.extend(['--model', model_override])
+        
         result = subprocess.run(cmd,
                               capture_output=True,
                               text=True,
@@ -565,8 +603,14 @@ Failed Tests:
 Return ONLY valid JSON:
 {{"recommendation": "prp|code", "reasoning": "Brief explanation", "test_analysis": [{{"test": "Test name", "category": "prp|code", "reason": "Why"}}]}}"""
         
-        # Load LLM config from profile
-        llm_config = load_llm_profile()
+        # Load LLM config from profile - use rejection_analyzer from state
+        try:
+            state = load_project_state(project_id)
+            profile_name = state.get('agent_models', {}).get('rejection_analyzer', 'gemma-free')
+            llm_config = load_llm_profile(profile_name)
+        except Exception as e:
+           print(f"Warning: Could not load state for rejection analyzer, using default: {e}")
+           llm_config = load_llm_profile('gemma-free')
         
         # LLM API call
         api_key = os.environ.get('OPENROUTER_API_KEY')
@@ -596,11 +640,32 @@ Return ONLY valid JSON:
             timeout=30
         )
 
+        # DEBUG - Response kontrolü
+        print(f"DEBUG - Response status: {response.status_code}")
+        print(f"DEBUG - Response text (first 200 chars): {response.text[:200]}")
+
         if response.status_code != 200:
+            print(f"ERROR - API returned {response.status_code}: {response.text[:500]}")
             return jsonify({'error': f'LLM API error: {response.status_code}'}), 500
-        
-        content = response.json()['choices'][0]['message']['content']
+
+        # Parse response
+        response_json = response.json()
+        print(f"DEBUG - Full response keys: {response_json.keys()}")
+
+        # OpenRouter format: choices[0].message.content
+        if 'choices' in response_json:
+            content = response_json['choices'][0]['message']['content']
+        else:
+            print(f"ERROR - Unexpected response format: {response_json}")
+            return jsonify({'error': 'Unexpected API response format'}), 500
+
+        print(f"DEBUG - LLM content (first 200 chars): {content[:200]}")
+
         content = re.sub(r'```json\s*|\s*```', '', content).strip()
+
+        # Clean markdown code fences
+        import re
+        content = re.sub(r'^```json\s*|\s*```$', '', content, flags=re.MULTILINE).strip()
 
         analysis = json.loads(content)
         

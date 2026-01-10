@@ -58,48 +58,96 @@
     {% set next_agent = state.next_action.agent %}
     {% set requires_approval = state.next_action.requires_human_approval %}
 
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <!-- PRP Agent -->
-        {% set prp_enabled = phase in ['idea', 'prp'] %}
-        <button onclick="{% if prp_enabled %}runAgent('prp'){% endif %}"
-                class="px-4 py-3 rounded-lg font-medium text-sm transition
-                       {% if prp_enabled %}bg-blue-50 hover:bg-blue-100 text-blue-700 cursor-pointer{% else %}bg-gray-100 text-gray-400 cursor-not-allowed{% endif %}
-                       {% if next_agent == 'prp_agent' and requires_approval %}ring-2 ring-orange-400{% endif %}"
-                {% if not prp_enabled %}disabled{% endif %}>
-            🎯 PRP Agent
-            {% if next_agent == 'prp_agent' and requires_approval %}<span class="text-xs block">⚠️</span>{% endif %}
-        </button>
+    <div class="space-y-4">
+        <!-- Model Selection Section -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="font-medium text-blue-900">🔧 Model Selection</h3>
+                <button id="toggleModelSelect" onclick="toggleModelDropdowns()" 
+                        class="text-xs bg-blue-100 hover:bg-blue-200 px-3 py-1 rounded">
+                    Show/Hide
+                </button>
+            </div>
+            <p class="text-xs text-blue-700 mb-3" id="modelHelp">
+                Select different models for each agent. Leave empty to use project defaults.
+            </p>
+            
+            <div id="modelDropdowns" class="grid grid-cols-2 md:grid-cols-4 gap-3" style="display:none">
+                <!-- PRP Model -->
+                <div>
+                    <label class="text-xs text-gray-600 block mb-1">PRP Agent</label>
+                    <select id="model-prp" class="w-full text-xs border rounded p-1.5 bg-white">
+                        <option value="">Default (from state)</option>
+                    </select>
+                </div>
+                <!-- Dev Model -->
+                <div>
+                    <label class="text-xs text-gray-600 block mb-1">Dev Agent</label>
+                    <select id="model-dev" class="w-full text-xs border rounded p-1.5 bg-white">
+                        <option value="">Default (from state)</option>
+                    </select>
+                </div>
+                <!-- Test Model -->
+                <div>
+                    <label class="text-xs text-gray-600 block mb-1">Test Agent</label>
+                    <select id="model-test" class="w-full text-xs border rounded p-1.5 bg-white">
+                        <option value="">Default (from state)</option>
+                    </select>
+                </div>
+                <!-- Doc Model -->
+                <div>
+                    <label class="text-xs text-gray-600 block mb-1">Doc Agent</label>
+                    <select id="model-doc" class="w-full text-xs border rounded p-1.5 bg-white">
+                        <option value="">Default (from state)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
 
-        <!-- Dev Agent -->
-        {% set dev_enabled = phase == 'development' %}
-        <button onclick="{% if dev_enabled %}runAgent('dev'){% endif %}"
-                class="px-4 py-3 rounded-lg font-medium text-sm transition
-                       {% if dev_enabled %}bg-yellow-50 hover:bg-yellow-100 text-yellow-700 cursor-pointer{% else %}bg-gray-100 text-gray-400 cursor-not-allowed{% endif %}
-                       {% if next_agent == 'dev_agent' and requires_approval %}ring-2 ring-orange-400{% endif %}"
-                {% if not dev_enabled %}disabled{% endif %}>
-            💻 Dev Agent
-            {% if next_agent == 'dev_agent' and requires_approval %}<span class="text-xs block">⚠️</span>{% endif %}
-        </button>
-
-        <!-- Test Agent -->
-        {% set test_enabled = phase == 'test' %}
-        <button onclick="{% if test_enabled %}runAgent('test'){% endif %}"
-                class="px-4 py-3 rounded-lg font-medium text-sm transition
-                       {% if test_enabled %}bg-orange-50 hover:bg-orange-100 text-orange-700 cursor-pointer{% else %}bg-gray-100 text-gray-400 cursor-not-allowed{% endif %}
-                       {% if next_agent == 'test_agent' and requires_approval %}ring-2 ring-orange-400{% endif %}"
-                {% if not test_enabled %}disabled{% endif %}>
-            🧪 Test Agent
-            {% if next_agent == 'test_agent' and requires_approval %}<span class="text-xs block">⚠️</span>{% endif %}
-        </button>
-
-        <!-- Doc Agent -->
-        {% set doc_enabled = phase in ['test', 'release'] %}
-        <button onclick="{% if doc_enabled %}runAgent('doc'){% endif %}"
-                class="px-4 py-3 rounded-lg font-medium text-sm transition
-                       {% if doc_enabled %}bg-purple-50 hover:bg-purple-100 text-purple-700 cursor-pointer{% else %}bg-gray-100 text-gray-400 cursor-not-allowed{% endif %}"
-                {% if not doc_enabled %}disabled{% endif %}>
-            📄 Doc Agent
-        </button>
+        <!-- Agent Buttons -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <!-- PRP Agent -->
+            {% set prp_enabled = phase in ['idea', 'prp'] %}
+            <button onclick="{% if prp_enabled %}runAgent('prp'){% endif %}"
+                    class="px-4 py-3 rounded-lg font-medium text-sm transition
+                           {% if prp_enabled %}bg-blue-50 hover:bg-blue-100 text-blue-700 cursor-pointer{% else %}bg-gray-100 text-gray-400 cursor-not-allowed{% endif %}
+                           {% if next_agent == 'prp_agent' and requires_approval %}ring-2 ring-orange-400{% endif %}"
+                    {% if not prp_enabled %}disabled{% endif %}>
+                🎯 PRP Agent
+                {% if next_agent == 'prp_agent' and requires_approval %}<span class="text-xs block">⚠️</span>{% endif %}
+            </button>
+            
+            <!-- Dev Agent -->
+            {% set dev_enabled = phase == 'development' %}
+            <button onclick="{% if dev_enabled %}runAgent('dev'){% endif %}"
+                    class="px-4 py-3 rounded-lg font-medium text-sm transition
+                           {% if dev_enabled %}bg-yellow-50 hover:bg-yellow-100 text-yellow-700 cursor-pointer{% else %}bg-gray-100 text-gray-400 cursor-not-allowed{% endif %}
+                           {% if next_agent == 'dev_agent' and requires_approval %}ring-2 ring-orange-400{% endif %}"
+                    {% if not dev_enabled %}disabled{% endif %}>
+                💻 Dev Agent
+                {% if next_agent == 'dev_agent' and requires_approval %}<span class="text-xs block">⚠️</span>{% endif %}
+            </button>
+            
+            <!-- Test Agent -->
+            {% set test_enabled = phase == 'test' %}
+            <button onclick="{% if test_enabled %}runAgent('test'){% endif %}"
+                    class="px-4 py-3 rounded-lg font-medium text-sm transition
+                           {% if test_enabled %}bg-orange-50 hover:bg-orange-100 text-orange-700 cursor-pointer{% else %}bg-gray-100 text-gray-400 cursor-not-allowed{% endif %}
+                           {% if next_agent == 'test_agent' and requires_approval %}ring-2 ring-orange-400{% endif %}"
+                    {% if not test_enabled %}disabled{% endif %}>
+                🧪 Test Agent
+                {% if next_agent == 'test_agent' and requires_approval %}<span class="text-xs block">⚠️</span>{% endif %}
+            </button>
+            
+            <!-- Doc Agent -->
+            {% set doc_enabled = phase in ['test', 'release'] %}
+            <button onclick="{% if doc_enabled %}runAgent('doc'){% endif %}"
+                    class="px-4 py-3 rounded-lg font-medium text-sm transition
+                           {% if doc_enabled %}bg-purple-50 hover:bg-purple-100 text-purple-700 cursor-pointer{% else %}bg-gray-100 text-gray-400 cursor-not-allowed{% endif %}"
+                    {% if not doc_enabled %}disabled{% endif %}>
+                📄 Doc Agent
+            </button>
+        </div>
     </div>
 
     <!-- Phase Info -->
@@ -132,6 +180,9 @@
                         class="text-gray-400 hover:text-gray-600">
                     ✕
                 </button>
+            </div>
+            <div id="loading" class="hidden">
+                <div class="animate-pulse text-sm text-gray-600">Agent çalışıyor...</div>
             </div>
             <pre id="agent-output-content" class="text-xs text-gray-600 whitespace-pre-wrap max-h-96 overflow-y-auto"></pre>
         </div>
@@ -228,39 +279,94 @@
 
 {% block scripts %}
 <script>
-async function runAgent(agent) {
-    const outputDiv = document.getElementById('agent-output');
-    const outputContent = document.getElementById('agent-output-content');
-
-    outputDiv.classList.remove('hidden');
-    outputContent.textContent = `${agent} çalıştırılıyor...\n`;
-
-    try {
-        const response = await fetch('/api/run-agent', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                project_id: '{{ project_id }}',
-                agent: agent
-            })
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-            outputContent.textContent = data.output;
-            // 3 saniye sonra sayfayı yenile
-            setTimeout(() => {
-                location.reload();
-            }, 3000);
-        } else {
-            outputContent.textContent = `Hata: ${data.error}`;
-        }
-    } catch (error) {
-        outputContent.textContent = `Bağlantı hatası: ${error.message}`;
+// Model dropdown toggle
+function toggleModelDropdowns() {
+    const dropdowns = document.getElementById('modelDropdowns');
+    if (dropdowns.style.display === 'none') {
+        dropdowns.style.display = 'grid';
+    } else {
+        dropdowns.style.display = 'none';
     }
 }
+
+// Load available profiles on page load
+async function loadProfiles() {
+    try {
+        const response = await fetch('/api/get-profiles');
+        const data = await response.json();
+        
+        if (data.success) {
+            const profiles = data.profiles;
+            const selects = ['prp', 'dev', 'test', 'doc'];
+            
+            selects.forEach(agent => {
+                const select = document.getElementById(`model-${agent}`);
+                if (select) {
+                    profiles.forEach(profile => {
+                        const option = document.createElement('option');
+                        option.value = profile.name;
+                        option.textContent = `${profile.name}`;
+                        if (profile.description) {
+                            option.title = profile.description;
+                        }
+                        select.appendChild(option);
+                    });
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Error loading profiles:', error);
+    }
+}
+
+// Run agent with model selection
+async function runAgent(agentType) {
+    const modelSelect = document.getElementById(`model-${agentType}`);
+    const modelOverride = modelSelect ? modelSelect.value : '';
+    
+    const outputDiv = document.getElementById('agent-output');
+    const outputContent = document.getElementById('agent-output-content');
+    const loadingDiv = document.getElementById('loading');
+    
+    outputDiv.classList.remove('hidden');
+    loadingDiv.classList.remove('hidden');
+    outputContent.textContent = '';
+    
+    try {
+        const payload = {
+            project_id: '{{ project_id }}',
+            agent: agentType
+        };
+        
+        if (modelOverride) {
+            payload.model_override = modelOverride;
+        }
+        
+        const response = await fetch('/api/run-agent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        const data = await response.json();
+        loadingDiv.classList.add('hidden');
+        
+        if (data.success) {
+            outputContent.textContent = data.output || 'Agent completed successfully';
+        } else {
+            outputContent.textContent = 'Error: ' + (data.error || 'Unknown error');
+            outputContent.classList.add('text-red-600');
+        }
+        
+        setTimeout(() => location.reload(), 3000);
+    } catch (error) {
+        loadingDiv.classList.add('hidden');
+        outputContent.textContent = 'Error: ' + error.message;
+        outputContent.classList.add('text-red-600');
+    }
+}
+
+// Load profiles on page load
+document.addEventListener('DOMContentLoaded', loadProfiles);
 </script>
 {% endblock %}
