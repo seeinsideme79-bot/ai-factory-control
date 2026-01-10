@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Validation History - {{ project_id }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Validation History</h1>
+            <p class="text-gray-600 mt-1">{{ project_id }}</p>
+        </div>
+        <div class="space-x-2">
+            <button onclick="loadValidationHistory()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                🔄 Refresh
+            </button>
+            <a href="/project/{{ project_id }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 inline-block">
+                ← Back to Project
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow-md p-6">
+    <div id="validation-history-container">
+        <p class="text-gray-500 text-center py-8">Loading history...</p>
+    </div>
+</div>
+
+<script>
+// Load validation history on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadValidationHistory();
+});
+
+// Load validation history
+function loadValidationHistory() {
+    const container = document.getElementById('validation-history-container');
+    container.innerHTML = '<p class="text-gray-500 text-center py-8"><span class="animate-pulse">Loading history...</span></p>';
+    
+    fetch('/api/validation-history/{{ project_id }}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.history && data.history.length > 0) {
+                let html = '<div class="space-y-4">';
+                
+                data.history.forEach((item, index) => {
+                    const decisionClass = item.decision === 'APPROVE' ? 
+                        'bg-green-50 border-green-200' : 
+                        'bg-red-50 border-red-200';
+                    const decisionBadge = item.decision === 'APPROVE' ? 
+                        '<span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">✅ Approved</span>' :
+                        '<span class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-semibold">❌ Rejected</span>';
+                    
+                    html += `
+                        <div class="border-2 rounded-lg ${decisionClass} overflow-hidden">
+                            <button onclick="toggleHistory(${index})" class="w-full text-left p-5 flex justify-between items-center hover:bg-opacity-50 transition-colors">
+                                <div class="flex-1">
+                                    <div class="flex items-center space-x-4">
+                                        <span class="text-lg font-bold text-gray-900">#${data.history.length - index}</span>
+                                        <span class="text-gray-700 font-semibold">${item.date}</span>
+                                        ${decisionBadge}
+                                    </div>
+                                </div>
+                                <span class="history-arrow text-2xl text-gray-600">▼</span>
+                            </button>
+                            <div id="history-${index}" class="history-content hidden border-t-2">
+                                <div class="p-6 bg-white">
+                                    <pre class="whitespace-pre-wrap text-sm font-mono bg-gray-50 p-4 rounded border overflow-x-auto">${escapeHtml(item.content)}</pre>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = `
+                    <div class="text-center py-12">
+                        <div class="text-6xl mb-4">📋</div>
+                        <p class="text-gray-500 text-lg">No validation history yet</p>
+                        <p class="text-gray-400 text-sm mt-2">Validation reports will appear here after human validation</p>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading history:', error);
+            container.innerHTML = `
+                <div class="text-center py-12">
+                    <div class="text-6xl mb-4">⚠️</div>
+                    <p class="text-red-500 text-lg">Failed to load history</p>
+                    <p class="text-gray-500 text-sm mt-2">${error.message}</p>
+                    <button onclick="loadValidationHistory()" class="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                        Try Again
+                    </button>
+                </div>
+            `;
+        });
+}
+
+// Toggle history item
+function toggleHistory(index) {
+    const content = document.getElementById(`history-${index}`);
+    const button = event.target.closest('button');
+    const arrow = button.querySelector('.history-arrow');
+    
+    if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        arrow.textContent = '▲';
+    } else {
+        content.classList.add('hidden');
+        arrow.textContent = '▼';
+    }
+}
+
+// Escape HTML for safe display
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+
+{% endblock %}

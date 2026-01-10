@@ -17,11 +17,17 @@
             <h1 class="text-2xl font-bold text-gray-900">{{ project_id }}</h1>
             <p class="mt-1 text-sm text-gray-500">{{ state.meta.repo_url }}</p>
         </div>
-        <span class="phase-indicator phase-{{ state.phase }}">
-            {{ state.phase }}
-        </span>
+        <div class="flex items-center space-x-2">
+            <a href="{{ url_for('validation_history', project_id=project_id) }}" 
+               class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium">
+                📜 Validation History
+            </a>
+            <span class="phase-indicator phase-{{ state.phase }}">
+                {{ state.phase }}
+            </span>
+        </div>
     </div>
-    
+
     <!-- Phase Progress -->
     <div class="mt-6">
         <div class="flex items-center space-x-2">
@@ -47,31 +53,82 @@
 <!-- Agent Actions -->
 <div class="bg-white rounded-lg shadow p-6 mb-6">
     <h2 class="text-lg font-semibold text-gray-900 mb-4">Agent İşlemleri</h2>
-    
+
+    {% set phase = state.phase %}
+    {% set next_agent = state.next_action.agent %}
+    {% set requires_approval = state.next_action.requires_human_approval %}
+
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <button onclick="runAgent('prp')" 
-                class="px-4 py-3 bg-blue-50 hover:bg-blue-100 rounded-lg text-blue-700 font-medium text-sm transition">
+        <!-- PRP Agent -->
+        {% set prp_enabled = phase in ['idea', 'prp'] %}
+        <button onclick="{% if prp_enabled %}runAgent('prp'){% endif %}"
+                class="px-4 py-3 rounded-lg font-medium text-sm transition
+                       {% if prp_enabled %}bg-blue-50 hover:bg-blue-100 text-blue-700 cursor-pointer{% else %}bg-gray-100 text-gray-400 cursor-not-allowed{% endif %}
+                       {% if next_agent == 'prp_agent' and requires_approval %}ring-2 ring-orange-400{% endif %}"
+                {% if not prp_enabled %}disabled{% endif %}>
             🎯 PRP Agent
+            {% if next_agent == 'prp_agent' and requires_approval %}<span class="text-xs block">⚠️</span>{% endif %}
         </button>
-        <button onclick="runAgent('dev')" 
-                class="px-4 py-3 bg-yellow-50 hover:bg-yellow-100 rounded-lg text-yellow-700 font-medium text-sm transition">
+
+        <!-- Dev Agent -->
+        {% set dev_enabled = phase == 'development' %}
+        <button onclick="{% if dev_enabled %}runAgent('dev'){% endif %}"
+                class="px-4 py-3 rounded-lg font-medium text-sm transition
+                       {% if dev_enabled %}bg-yellow-50 hover:bg-yellow-100 text-yellow-700 cursor-pointer{% else %}bg-gray-100 text-gray-400 cursor-not-allowed{% endif %}
+                       {% if next_agent == 'dev_agent' and requires_approval %}ring-2 ring-orange-400{% endif %}"
+                {% if not dev_enabled %}disabled{% endif %}>
             💻 Dev Agent
+            {% if next_agent == 'dev_agent' and requires_approval %}<span class="text-xs block">⚠️</span>{% endif %}
         </button>
-        <button onclick="runAgent('test')" 
-                class="px-4 py-3 bg-orange-50 hover:bg-orange-100 rounded-lg text-orange-700 font-medium text-sm transition">
+
+        <!-- Test Agent -->
+        {% set test_enabled = phase == 'test' %}
+        <button onclick="{% if test_enabled %}runAgent('test'){% endif %}"
+                class="px-4 py-3 rounded-lg font-medium text-sm transition
+                       {% if test_enabled %}bg-orange-50 hover:bg-orange-100 text-orange-700 cursor-pointer{% else %}bg-gray-100 text-gray-400 cursor-not-allowed{% endif %}
+                       {% if next_agent == 'test_agent' and requires_approval %}ring-2 ring-orange-400{% endif %}"
+                {% if not test_enabled %}disabled{% endif %}>
             🧪 Test Agent
+            {% if next_agent == 'test_agent' and requires_approval %}<span class="text-xs block">⚠️</span>{% endif %}
         </button>
-        <button onclick="runAgent('doc')" 
-                class="px-4 py-3 bg-purple-50 hover:bg-purple-100 rounded-lg text-purple-700 font-medium text-sm transition">
+
+        <!-- Doc Agent -->
+        {% set doc_enabled = phase in ['test', 'release'] %}
+        <button onclick="{% if doc_enabled %}runAgent('doc'){% endif %}"
+                class="px-4 py-3 rounded-lg font-medium text-sm transition
+                       {% if doc_enabled %}bg-purple-50 hover:bg-purple-100 text-purple-700 cursor-pointer{% else %}bg-gray-100 text-gray-400 cursor-not-allowed{% endif %}"
+                {% if not doc_enabled %}disabled{% endif %}>
             📄 Doc Agent
         </button>
     </div>
-    
+
+    <!-- Phase Info -->
+    <div class="mt-4 p-3 bg-blue-50 rounded-lg">
+        <p class="text-sm text-blue-800">
+            {% if phase == 'idea' %}
+                📌 Proje idea fazında. PRP Agent'ı çalıştırarak PRP oluşturun.
+            {% elif phase == 'prp' %}
+                📌 PRP hazır. Development fazına geçmek için state'i güncelleyin.
+            {% elif phase == 'development' %}
+                📌 Development fazında. Dev Agent'ı çalıştırarak kod üretin.
+            {% elif phase == 'test' %}
+                📌 Test fazında. Test Agent'ı çalıştırarak testleri yürütün.
+            {% elif phase == 'human_validation' %}
+                ⚠️ İnsan validasyonu bekleniyor.
+                <a href="{{ url_for('human_validation', project_id=project_id) }}" class="font-semibold underline">
+                    Validation sayfasına git →
+                </a>
+            {% elif phase == 'release' %}
+                ✅ Proje release fazında. İsteğe bağlı Doc Agent ile dokümantasyon güncelleyin.
+            {% endif %}
+        </p>
+    </div>
+
     <div id="agent-output" class="mt-4 hidden">
         <div class="bg-gray-50 rounded-lg p-4">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-sm font-semibold text-gray-700">Agent Çıktısı</h3>
-                <button onclick="document.getElementById('agent-output').classList.add('hidden')" 
+                <button onclick="document.getElementById('agent-output').classList.add('hidden')"
                         class="text-gray-400 hover:text-gray-600">
                     ✕
                 </button>
@@ -101,7 +158,7 @@
             </div>
         </dl>
     </div>
-    
+
     <!-- Blocking Status -->
     <div class="bg-white rounded-lg shadow p-6">
         <h2 class="text-lg font-semibold text-gray-900 mb-4">Durum</h2>
@@ -174,10 +231,10 @@
 async function runAgent(agent) {
     const outputDiv = document.getElementById('agent-output');
     const outputContent = document.getElementById('agent-output-content');
-    
+
     outputDiv.classList.remove('hidden');
     outputContent.textContent = `${agent} çalıştırılıyor...\n`;
-    
+
     try {
         const response = await fetch('/api/run-agent', {
             method: 'POST',
@@ -189,9 +246,9 @@ async function runAgent(agent) {
                 agent: agent
             })
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
             outputContent.textContent = data.output;
             // 3 saniye sonra sayfayı yenile

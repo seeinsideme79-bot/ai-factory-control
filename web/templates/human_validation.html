@@ -1,0 +1,439 @@
+{% extends "base.html" %}
+
+{% block title %}Human Validation - {{ project.meta.project_id }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Human Validation</h1>
+            <p class="text-gray-600 mt-1">{{ project.meta.project_id }}</p>
+        </div>
+        <div class="space-x-2">
+            <a href="/project/{{ project_id }}/validation-history" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 inline-block">
+                📜 View History
+            </a>
+            <span class="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-lg font-semibold">
+                👤 Awaiting Validation
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- Automatic Test Results -->
+<div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <h2 class="text-xl font-bold text-gray-900 mb-4">🧪 Automatic Test Results</h2>
+    
+    {% if test_results %}
+    <div class="space-y-2">
+        {% for test in test_results %}
+        <div class="flex items-center p-3 bg-gray-50 rounded">
+            <span class="text-2xl mr-3">
+                {% if test.passed %}✅{% else %}❌{% endif %}
+            </span>
+            <div class="flex-1">
+                <p class="font-semibold">{{ test.name }}</p>
+                {% if test.message %}
+                <p class="text-sm text-gray-600">{{ test.message }}</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-gray-500 text-center py-4">No automatic tests run yet</p>
+    {% endif %}
+</div>
+
+<!-- Manual Test Scenarios -->
+<div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold text-gray-900">📋 Manual Test Scenarios</h2>
+        <button onclick="toggleAllScenarios()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200">
+            Toggle All
+        </button>
+    </div>
+    
+    <div id="scenarios-container">
+        {% if manual_tests %}
+        {% for test in manual_tests %}
+        <div class="border rounded-lg mb-3 scenario-item" data-scenario-id="{{ loop.index }}">
+            <button onclick="toggleScenario({{ loop.index }})" class="w-full text-left p-4 flex justify-between items-center hover:bg-gray-50">
+                <span class="font-semibold">Test {{ loop.index }}: {{ test.title }}</span>
+                <span class="scenario-arrow">▼</span>
+            </button>
+            <div id="scenario-{{ loop.index }}" class="scenario-content hidden p-4 bg-gray-50 border-t">
+                {% if test.input %}
+                <p class="text-gray-700 mb-2"><strong>Input:</strong> {{ test.input }}</p>
+                {% endif %}
+                {% if test.expected %}
+                <p class="text-gray-700 mb-2"><strong>Expected:</strong> {{ test.expected }}</p>
+                {% endif %}
+                {% if test.command %}
+                <p class="text-gray-700 mb-4"><strong>Command:</strong> <code class="bg-gray-200 px-2 py-1 rounded">{{ test.command }}</code></p>
+                {% endif %}
+                
+                <div class="flex space-x-2">
+                    <button onclick="markTest({{ loop.index }}, 'pass')" class="flex-1 px-4 py-2 bg-green-100 text-green-800 rounded hover:bg-green-200">
+                        ✓ Pass
+                    </button>
+                    <button onclick="markTest({{ loop.index }}, 'fail')" class="flex-1 px-4 py-2 bg-red-100 text-red-800 rounded hover:bg-red-200">
+                        ✗ Fail
+                    </button>
+                    <button onclick="markTest({{ loop.index }}, 'skip')" class="flex-1 px-4 py-2 bg-gray-100 text-gray-800 rounded hover:bg-gray-200">
+                        − Skip
+                    </button>
+                </div>
+                
+                <input type="hidden" id="test-result-{{ loop.index }}" value="">
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="text-gray-500 text-center py-4">No manual test scenarios defined</p>
+        {% endif %}
+    </div>
+
+    <!-- Saved Custom Scenarios Container -->
+    <div id="saved-custom-scenarios"></div>
+
+    <!-- Add Custom Scenario Button -->
+    <div class="mt-4 pt-4 border-t">
+        <button onclick="addCustomScenario()" class="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold">
+            + Add Custom Scenario
+        </button>
+    </div>
+</div>
+
+<!-- Feedback Section -->
+<div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <h2 class="text-xl font-bold text-gray-900 mb-4">💬 Feedback & Comments</h2>
+    <textarea id="feedback-text" rows="6" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Add your feedback, observations, or concerns here..."></textarea>
+</div>
+
+
+<!-- Action Buttons -->
+<div class="flex space-x-4 mb-6">
+    <button onclick="submitValidation('approve')" class="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold text-lg">
+        ✅ Approve & Continue
+    </button>
+    <button onclick="submitValidation('reject')" class="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold text-lg">
+        ❌ Reject & Request Revision
+    </button>
+</div>
+
+<!-- Rejection Analysis Modal -->
+<div id="rejection-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="bg-red-600 text-white px-6 py-4 rounded-t-lg">
+            <h2 class="text-2xl font-bold">🤖 AI Rejection Analysis</h2>
+        </div>
+        
+        <div id="modal-loading" class="p-8 text-center">
+            <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto"></div>
+            <p class="mt-4 text-gray-600">Analyzing feedback with AI...</p>
+        </div>
+        
+        <div id="modal-content" class="hidden p-6">
+            <div class="mb-6 p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
+                <h3 class="text-lg font-bold text-blue-900 mb-2">🎯 AI Recommendation</h3>
+                <p id="ai-recommendation" class="text-blue-800 font-semibold text-xl mb-2"></p>
+                <p id="ai-reasoning" class="text-blue-700 text-sm"></p>
+            </div>
+            
+            <div class="mb-6">
+                <h3 class="text-lg font-bold text-gray-900 mb-3">📊 Test Analysis</h3>
+                <div id="test-analysis-list" class="space-y-2"></div>
+            </div>
+            
+            <div class="mb-6 p-4 bg-gray-50 rounded-lg">
+                <h3 class="text-lg font-bold text-gray-900 mb-3">✏️ Override AI Decision</h3>
+                <div class="space-y-2">
+                    <label class="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-gray-100">
+                        <input type="radio" name="phase-decision" value="prp" class="w-5 h-5 text-blue-600">
+                        <div class="ml-3">
+                            <div class="font-semibold text-gray-900">PRP Phase</div>
+                            <div class="text-sm text-gray-600">Update requirements first, then regenerate code</div>
+                        </div>
+                    </label>
+                    <label class="flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-gray-100">
+                        <input type="radio" name="phase-decision" value="development" class="w-5 h-5 text-blue-600">
+                        <div class="ml-3">
+                            <div class="font-semibold text-gray-900">Development Phase</div>
+                            <div class="text-sm text-gray-600">Fix code bugs only, no requirement changes</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="flex space-x-3">
+                <button onclick="closeRejectionModal()" class="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold">
+                    Cancel
+                </button>
+                <button onclick="confirmRejection()" class="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">
+                    Confirm Rejection
+                </button>
+            </div>
+        </div>
+        
+        <div id="modal-error" class="hidden p-6 text-center">
+            <div class="text-6xl mb-4">⚠️</div>
+            <h3 class="text-xl font-bold text-red-600 mb-2">Analysis Failed</h3>
+            <p id="error-message" class="text-gray-600 mb-4"></p>
+            <button onclick="closeRejectionModal()" class="px-6 py-2 bg-gray-200 rounded-lg">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let customScenarioCounter = 1000;
+let allScenariosExpanded = false;
+let savedCustomScenarios = [];
+let baseTestCount = {{ manual_tests|length if manual_tests else 0 }};
+let aiAnalysisData = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadCustomScenarios();
+});
+
+function loadCustomScenarios() {
+    fetch('/api/custom-scenarios/{{ project_id }}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.scenarios && data.scenarios.length > 0) {
+                savedCustomScenarios = data.scenarios;
+                renderSavedScenarios();
+            }
+        })
+        .catch(error => console.error('Error loading custom scenarios:', error));
+}
+
+function renderSavedScenarios() {
+    const container = document.getElementById('saved-custom-scenarios');
+    let html = '';
+    savedCustomScenarios.forEach((scenario, index) => {
+        const testNumber = baseTestCount + index + 1;
+        html += `<div class="border rounded-lg mb-3 mt-3 bg-blue-50" data-saved-id="${scenario.id}">
+            <button onclick="toggleScenario('saved-${scenario.id}')" class="w-full text-left p-4 flex justify-between items-center hover:bg-blue-100">
+                <span class="font-semibold">💾 Test ${testNumber}: ${scenario.title}</span>
+                <span class="scenario-arrow">▼</span>
+            </button>
+            <div id="scenario-saved-${scenario.id}" class="scenario-content hidden p-4 bg-white border-t">
+                ${scenario.input ? '<p class="text-gray-700 mb-2"><strong>Input:</strong> '+scenario.input+'</p>' : ''}
+                ${scenario.expected ? '<p class="text-gray-700 mb-2"><strong>Expected:</strong> '+scenario.expected+'</p>' : ''}
+                ${scenario.description ? '<p class="text-gray-700 mb-4">'+scenario.description+'</p>' : ''}
+                <p class="text-xs text-gray-500 mb-4">Created: ${new Date(scenario.created_at).toLocaleString()}</p>
+                <div class="flex space-x-2">
+                    <button onclick="markTest('saved-${scenario.id}', 'pass')" class="flex-1 px-4 py-2 bg-green-100 text-green-800 rounded hover:bg-green-200">✓ Pass</button>
+                    <button onclick="markTest('saved-${scenario.id}', 'fail')" class="flex-1 px-4 py-2 bg-red-100 text-red-800 rounded hover:bg-red-200">✗ Fail</button>
+                    <button onclick="markTest('saved-${scenario.id}', 'skip')" class="flex-1 px-4 py-2 bg-gray-100 text-gray-800 rounded hover:bg-gray-200">− Skip</button>
+                    <button onclick="deleteCustomScenario(${scenario.id})" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">🗑️</button>
+                </div>
+                <input type="hidden" id="test-result-saved-${scenario.id}" value="">
+            </div>
+        </div>`;
+    });
+    container.innerHTML = html;
+}
+
+function toggleScenario(id) {
+    const content = document.getElementById('scenario-'+id);
+    const arrow = event.target.querySelector('.scenario-arrow');
+    if (content && content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        if (arrow) arrow.textContent = '▲';
+    } else if (content) {
+        content.classList.add('hidden');
+        if (arrow) arrow.textContent = '▼';
+    }
+}
+
+function toggleAllScenarios() {
+    allScenariosExpanded = !allScenariosExpanded;
+    document.querySelectorAll('.scenario-content').forEach(s => {
+        allScenariosExpanded ? s.classList.remove('hidden') : s.classList.add('hidden');
+    });
+    document.querySelectorAll('.scenario-arrow').forEach(a => {
+        a.textContent = allScenariosExpanded ? '▲' : '▼';
+    });
+}
+
+function markTest(id, result) {
+    const input = document.getElementById('test-result-'+id);
+    if (!input) return;
+    input.value = result;
+    const container = input.closest('.scenario-content');
+    container.querySelectorAll('button').forEach(btn => {
+        btn.classList.remove('ring-2', 'ring-offset-2');
+        if (result === 'pass' && btn.textContent.includes('Pass')) btn.classList.add('ring-2', 'ring-green-600', 'ring-offset-2');
+        else if (result === 'fail' && btn.textContent.includes('Fail')) btn.classList.add('ring-2', 'ring-red-600', 'ring-offset-2');
+        else if (result === 'skip' && btn.textContent.includes('Skip')) btn.classList.add('ring-2', 'ring-gray-600', 'ring-offset-2');
+    });
+}
+
+function addCustomScenario() {
+    const id = customScenarioCounter++;
+    document.getElementById('saved-custom-scenarios').insertAdjacentHTML('beforeend', `
+        <div class="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-6 mb-3 mt-3" data-temp-id="${id}">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold">✏️ New Custom Scenario</h3>
+                <button onclick="removeCustomScenario(${id})" class="text-red-600 hover:text-red-800">✕ Cancel</button>
+            </div>
+            <div class="space-y-4">
+                <input type="text" id="custom-title-${id}" class="w-full border rounded-lg p-2" placeholder="Scenario Title *">
+                <input type="text" id="custom-input-${id}" class="w-full border rounded-lg p-2" placeholder="Input">
+                <input type="text" id="custom-expected-${id}" class="w-full border rounded-lg p-2" placeholder="Expected Result">
+                <textarea id="custom-desc-${id}" rows="3" class="w-full border rounded-lg p-2" placeholder="Additional Notes"></textarea>
+                <button onclick="saveCustomScenario(${id})" class="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold">💾 Save</button>
+            </div>
+        </div>
+    `);
+    setTimeout(() => document.getElementById('custom-title-'+id).focus(), 100);
+}
+
+function saveCustomScenario(tempId) {
+    const title = document.getElementById('custom-title-'+tempId).value.trim();
+    if (!title) { alert('Please enter a title'); return; }
+    fetch('/api/custom-scenarios/{{ project_id }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            title: title,
+            input: document.getElementById('custom-input-'+tempId).value.trim(),
+            expected: document.getElementById('custom-expected-'+tempId).value.trim(),
+            description: document.getElementById('custom-desc-'+tempId).value.trim()
+        })
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) {
+            document.querySelector('[data-temp-id="'+tempId+'"]').remove();
+            loadCustomScenarios();
+            alert('Saved!');
+        } else alert('Error: '+d.error);
+    })
+    .catch(e => alert('Failed'));
+}
+
+function removeCustomScenario(id) {
+    const el = document.querySelector('[data-temp-id="'+id+'"]');
+    if (el && confirm('Cancel?')) el.remove();
+}
+
+function deleteCustomScenario(id) {
+    if (!confirm('Delete permanently?')) return;
+    fetch('/api/custom-scenarios/{{ project_id }}', {
+        method: 'DELETE',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id: id})
+    })
+    .then(r => r.json())
+    .then(d => { if (d.success) { loadCustomScenarios(); alert('Deleted!'); } })
+    .catch(e => alert('Failed'));
+}
+
+function submitValidation(decision) {
+    if (decision === 'approve') {
+        submitValidationDirect('approve');
+    } else {
+        openRejectionModal();
+    }
+}
+
+function submitValidationDirect(decision) {
+    const testResults = {};
+    {% if manual_tests %}{% for test in manual_tests %}
+    testResults['test_{{ loop.index }}'] = {title: 'Test {{ loop.index }}: {{ test.title }}', result: document.getElementById('test-result-{{ loop.index }}').value || 'skip'};
+    {% endfor %}{% endif %}
+    savedCustomScenarios.forEach((s, i) => {
+        const r = document.getElementById('test-result-saved-'+s.id);
+        if (r) testResults['custom_'+s.id] = {title: 'Test '+(baseTestCount+i+1)+': '+s.title, result: r.value || 'skip'};
+    });
+    if (!confirm('Approve?')) return;
+    fetch('/api/human-validation', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({project_id: '{{ project_id }}', decision: decision, test_results: testResults, feedback: document.getElementById('feedback-text').value})
+    })
+    .then(r => r.json())
+    .then(d => { if (d.success) { alert('Success!'); window.location.href = '/project/{{ project_id }}'; } else alert('Error'); })
+    .catch(e => alert('Failed'));
+}
+
+function openRejectionModal() {
+    document.getElementById('rejection-modal').classList.remove('hidden');
+    document.getElementById('modal-loading').classList.remove('hidden');
+    document.getElementById('modal-content').classList.add('hidden');
+    document.getElementById('modal-error').classList.add('hidden');
+    
+    const testResults = {};
+    {% if manual_tests %}{% for test in manual_tests %}
+    testResults['test_{{ loop.index }}'] = {title: 'Test {{ loop.index }}: {{ test.title }}', result: document.getElementById('test-result-{{ loop.index }}').value || 'skip'};
+    {% endfor %}{% endif %}
+    savedCustomScenarios.forEach((s, i) => {
+        const r = document.getElementById('test-result-saved-'+s.id);
+        if (r) testResults['custom_'+s.id] = {title: 'Test '+(baseTestCount+i+1)+': '+s.title, result: r.value || 'skip'};
+    });
+    
+    fetch('/api/analyze-rejection/{{ project_id }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({feedback: document.getElementById('feedback-text').value, test_results: testResults})
+    })
+    .then(r => r.json())
+    .then(d => { if (d.success) { aiAnalysisData = d.analysis; displayAnalysis(d.analysis); } else showError(d.error); })
+    .catch(e => showError(e.message));
+}
+
+function displayAnalysis(analysis) {
+    document.getElementById('modal-loading').classList.add('hidden');
+    document.getElementById('modal-content').classList.remove('hidden');
+    document.getElementById('ai-recommendation').textContent = analysis.recommendation === 'prp' ? 'Return to PRP Phase' : 'Return to Development Phase';
+    document.getElementById('ai-reasoning').textContent = analysis.reasoning;
+    document.querySelector('input[value="'+analysis.recommendation+'"]').checked = true;
+    const list = document.getElementById('test-analysis-list');
+    list.innerHTML = '';
+    if (analysis.test_analysis) {
+        analysis.test_analysis.forEach(t => {
+            const badge = t.category === 'prp' ? '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-semibold">PRP</span>' :
+                t.category === 'code' ? '<span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs font-semibold">CODE</span>' :
+                '<span class="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-semibold">BOTH</span>';
+            list.innerHTML += '<div class="p-3 bg-gray-50 rounded border"><div class="flex justify-between"><div class="flex-1"><div class="font-semibold">'+t.test+'</div><div class="text-sm text-gray-600 mt-1">'+t.reason+'</div></div>'+badge+'</div></div>';
+        });
+    }
+}
+
+function showError(msg) {
+    document.getElementById('modal-loading').classList.add('hidden');
+    document.getElementById('modal-error').classList.remove('hidden');
+    document.getElementById('error-message').textContent = msg;
+}
+
+function closeRejectionModal() {
+    document.getElementById('rejection-modal').classList.add('hidden');
+    aiAnalysisData = null;
+}
+
+function confirmRejection() {
+    const phase = document.querySelector('input[name="phase-decision"]:checked');
+    if (!phase) { alert('Select a phase'); return; }
+    const testResults = {};
+    {% if manual_tests %}{% for test in manual_tests %}
+    testResults['test_{{ loop.index }}'] = {title: 'Test {{ loop.index }}: {{ test.title }}', result: document.getElementById('test-result-{{ loop.index }}').value || 'skip'};
+    {% endfor %}{% endif %}
+    savedCustomScenarios.forEach((s, i) => {
+        const r = document.getElementById('test-result-saved-'+s.id);
+        if (r) testResults['custom_'+s.id] = {title: 'Test '+(baseTestCount+i+1)+': '+s.title, result: r.value || 'skip'};
+    });
+    fetch('/api/human-validation', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({project_id: '{{ project_id }}', decision: 'reject', target_phase: phase.value, ai_analysis: aiAnalysisData, test_results: testResults, feedback: document.getElementById('feedback-text').value})
+    })
+    .then(r => r.json())
+    .then(d => { if (d.success) { alert('Rejected! Next: '+phase.value); window.location.href = '/project/{{ project_id }}'; } else alert('Error'); })
+    .catch(e => alert('Failed'));
+}
+</script>
+
+{% endblock %}
