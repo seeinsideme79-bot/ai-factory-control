@@ -174,48 +174,6 @@ def logout():
     flash('Çıkış yaptınız.', 'info')
     return redirect(url_for('login'))
 
-@app.route('/settings', methods=['GET', 'POST'])
-@login_required
-def settings():
-    """Settings sayfası"""
-    if request.method == 'GET':
-        # Load current profiles
-        profiles_file = os.path.join(CONTROL_DIR, 'config', 'llm.profiles.yaml')
-        try:
-            with open(profiles_file, 'r') as f:
-                profiles_data = yaml.safe_load(f)
-            
-            return render_template('settings.html',
-                                 profiles=profiles_data.get('profiles', {}),
-                                 default_profile=profiles_data.get('default_profile', 'gemma-free'))
-        except Exception as e:
-            flash(f'Settings yükleme hatası: {str(e)}', 'error')
-            return redirect(url_for('index'))
-    
-    # POST - Update settings
-    try:
-        action = request.form.get('action')
-        
-        if action == 'set_default_profile':
-            profile_name = request.form.get('profile_name')
-            profiles_file = os.path.join(CONTROL_DIR, 'config', 'llm.profiles.yaml')
-            
-            with open(profiles_file, 'r') as f:
-                profiles_data = yaml.safe_load(f)
-            
-            profiles_data['default_profile'] = profile_name
-            
-            with open(profiles_file, 'w') as f:
-                yaml.dump(profiles_data, f, default_flow_style=False, sort_keys=False)
-            
-            flash(f'Default profile güncellendi: {profile_name}', 'success')
-        
-        return redirect(url_for('settings'))
-    
-    except Exception as e:
-        flash(f'Settings güncelleme hatası: {str(e)}', 'error')
-        return redirect(url_for('settings'))
-
 
 @app.route('/new-project', methods=['GET', 'POST'])
 @login_required
@@ -339,14 +297,14 @@ def get_profiles():
 
 @app.route('/api/run-agent', methods=['POST'])
 @login_required
-
 def run_agent():
     """Agent çalıştır (API endpoint)"""
     try:
         data = request.json
         project_id = data.get('project_id')
         agent = data.get('agent')
-        model_override = data.get('model_override')
+
+        model_override = data.get('model_override')  # UI'dan gelen model seçimi
 
         if not project_id or not agent:
             return jsonify({'error': 'project_id ve agent gerekli'}), 400
@@ -359,68 +317,23 @@ def run_agent():
         result = subprocess.run(cmd,
                               capture_output=True,
                               text=True,
-                              timeout=300)
+                              timeout=300)  # 5 dakika timeout
 
         if result.returncode == 0:
-            # Başarılı - stdout'u döndür
             return jsonify({
                 'success': True,
                 'output': result.stdout
             })
         else:
-            # Hata - stderr'ı parse et ve anlamlı mesaj döndür
-            error_msg = parse_orchestrator_error(result.stderr, result.stdout)
             return jsonify({
                 'success': False,
-                'error': error_msg,
-                'raw_stderr': result.stderr[:500]  # Debug için ilk 500 char
+                'error': result.stderr
             }), 500
 
     except subprocess.TimeoutExpired:
-        return jsonify({'error': 'Agent timeout (5 dakika)'}), 500
+        return jsonify({'error': 'Agent timeout (5dk)'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-
-def parse_orchestrator_error(stderr, stdout):
-    """Orchestrator hata mesajını parse et ve kullanıcı dostu hale getir"""
-    import re
-    
-    # Emoji'leri temizle
-    clean_text = re.sub(r'[🔧📋🤖🔧🌐📊📝⚡🔍🚀✅❌📛]', '', stderr + stdout)
-    
-    # Yaygın hata pattern'leri
-    if 'API error 402' in clean_text:
-        return '💳 Kredi yetersiz: OpenRouter hesabınızda yeterli kredi yok. https://openrouter.ai/settings/credits adresinden kredi ekleyin.'
-    
-    if 'API error 400' in clean_text and 'not a valid model ID' in clean_text:
-        # Model ID'yi çıkar
-        model_match = re.search(r'([\w\/-]+)\s+is not a valid model ID', clean_text)
-        if model_match:
-            invalid_model = model_match.group(1)
-            return f'❌ Geçersiz model: "{invalid_model}" OpenRouter\'da bulunamadı. Lütfen farklı bir model seçin.'
-        return '❌ Geçersiz model ID. Lütfen farklı bir model seçin.'
-    
-    if 'API error 401' in clean_text:
-        return '🔑 API key hatası: OpenRouter API key\'iniz geçersiz veya eksik.'
-    
-    if 'API error 429' in clean_text:
-        return '⏳ Rate limit: Çok fazla istek gönderildi. Lütfen birkaç dakika bekleyin.'
-    
-    if 'API error' in clean_text:
-        # Genel API hatası - mesajı çıkar
-        error_match = re.search(r'API error \d+: (.+?)(?:\n|$)', clean_text)
-        if error_match:
-            return f'🌐 API Hatası: {error_match.group(1)[:200]}'
-    
-    if 'LLM call failed' in clean_text:
-        return '❌ LLM çağrısı başarısız oldu. Lütfen model seçiminizi kontrol edin veya tekrar deneyin.'
-    
-    if 'agent_error' in clean_text:
-        return '⚠️ Agent hatası: Agent çalışırken bir hata oluştu. Logları kontrol edin.'
-    
-    # Hiçbir pattern eşleşmezse, temizlenmiş mesajın ilk 300 karakterini döndür
-    return clean_text.strip()[:300] or 'Bilinmeyen hata oluştu'
 
 
 @app.route('/project/<project_id>/validation')
@@ -902,164 +815,3 @@ def require_api_key(f):
         return f(*args, **kwargs)
     return decorated
 
-@app.route('/api/save-agent-models/<project_id>', methods=['POST'])
-@login_required
-def save_agent_models(project_id):
-    """Save agent model selections to state"""
-    try:
-        data = request.json
-        agent_models = data.get('agent_models', {})
-        
-        # Validate project exists
-        projects = load_registry()
-        project = next((p for p in projects if p['id'] == project_id), None)
-        if not project:
-            return jsonify({'success': False, 'error': 'Project not found'}), 404
-        
-        # Load current state
-        project_path = os.path.join(PROJECTS_DIR, project_id)
-        state_file = os.path.join(project_path, 'state', 'state.yaml')
-        
-        with open(state_file, 'r') as f:
-            state = yaml.safe_load(f)
-        
-        # Update agent_models
-        if 'agent_models' not in state:
-            state['agent_models'] = {}
-        
-        state['agent_models'].update(agent_models)
-        
-        # Save state
-        with open(state_file, 'w') as f:
-            yaml.dump(state, f, default_flow_style=False, sort_keys=False)
-        
-        return jsonify({
-            'success': True,
-            'message': 'Agent models saved successfully',
-            'agent_models': state['agent_models']
-        })
-        
-    except Exception as e:
-        print(f"Error saving agent models: {e}", flush=True)
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/github-sync', methods=['POST'])
-@require_api_key
-def github_sync():
-    """
-    GitHub dosya senkronizasyonu
-    Actions: read, write, commit
-    """
-    try:
-        data = request.json
-        action = data.get('action')
-        
-        if action == 'read':
-            # Dosya oku
-            file_path = data.get('file_path')
-            if not file_path:
-                return jsonify({'error': 'file_path required'}), 400
-            
-            # Path validation - sadece proje klasörü içinde
-            if '..' in file_path or file_path.startswith('/'):
-                return jsonify({'error': 'Invalid file path'}), 400
-            
-            full_path = os.path.join(CONTROL_DIR, file_path)
-            
-            try:
-                with open(full_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                
-                return jsonify({
-                    'success': True,
-                    'file_path': file_path,
-                    'content': content,
-                    'size': len(content)
-                })
-            except FileNotFoundError:
-                return jsonify({'error': f'File not found: {file_path}'}), 404
-            except Exception as e:
-                return jsonify({'error': f'Read error: {str(e)}'}), 500
-        
-        elif action == 'write':
-            # Dosya yaz
-            file_path = data.get('file_path')
-            content = data.get('content')
-            
-            if not file_path or content is None:
-                return jsonify({'error': 'file_path and content required'}), 400
-            
-            # Path validation
-            if '..' in file_path or file_path.startswith('/'):
-                return jsonify({'error': 'Invalid file path'}), 400
-            
-            full_path = os.path.join(CONTROL_DIR, file_path)
-            
-            # Dizin yoksa oluştur
-            os.makedirs(os.path.dirname(full_path), exist_ok=True)
-            
-            try:
-                with open(full_path, 'w', encoding='utf-8') as f:
-                    f.write(content)
-                
-                return jsonify({
-                    'success': True,
-                    'message': f'File {file_path} updated',
-                    'size': len(content)
-                })
-            except Exception as e:
-                return jsonify({'error': f'Write error: {str(e)}'}), 500
-        
-        elif action == 'commit':
-            # Git commit + push
-            message = data.get('message', 'Auto-commit from Claude')
-            
-            try:
-                # Git add
-                result = subprocess.run(
-                    ['git', 'add', '-A'], 
-                    cwd=CONTROL_DIR, 
-                    capture_output=True, 
-                    text=True,
-                    check=True
-                )
-                
-                # Git commit
-                result = subprocess.run(
-                    ['git', 'commit', '-m', message], 
-                    cwd=CONTROL_DIR, 
-                    capture_output=True, 
-                    text=True,
-                    check=True
-                )
-                
-                # Git push
-                result = subprocess.run(
-                    ['git', 'push'], 
-                    cwd=CONTROL_DIR, 
-                    capture_output=True, 
-                    text=True,
-                    check=True
-                )
-                
-                return jsonify({
-                    'success': True,
-                    'message': 'Committed and pushed to GitHub',
-                    'commit_message': message
-                })
-            except subprocess.CalledProcessError as e:
-                error_msg = e.stderr if e.stderr else str(e)
-                return jsonify({
-                    'success': False,
-                    'error': f'Git error: {error_msg}'
-                }), 500
-        
-        else:
-            return jsonify({'error': f'Unknown action: {action}'}), 400
-    
-    except Exception as e:
-        return jsonify({'error': f'Server error: {str(e)}'}), 500
-
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)

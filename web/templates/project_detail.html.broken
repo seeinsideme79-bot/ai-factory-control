@@ -102,18 +102,6 @@
                     </select>
                 </div>
             </div>
-            
-            <!-- Save/Reset Buttons -->
-            <div class="mt-4 flex gap-2" id="modelButtons" style="display:none">
-                <button onclick="showSaveModelsModal()" 
-                        class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium">
-                    💾 Save as Default
-                </button>
-                <button onclick="resetModelSelections()" 
-                        class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm font-medium">
-                    🔄 Reset to Defaults
-                </button>
-            </div>
         </div>
 
         <!-- Agent Buttons -->
@@ -287,77 +275,6 @@
 </div>
 {% endif %}
 
-<!-- Modals -->
-
-<!-- Save Models Confirmation Modal -->
-<div id="saveModelsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-        <div class="p-6">
-            <h3 class="text-xl font-bold mb-4">💾 Save Model Defaults</h3>
-            <p class="text-gray-700 mb-4">
-                Save current model selections as default for this project?
-            </p>
-            
-            <div class="bg-gray-50 p-4 rounded mb-4 text-sm">
-                <div class="grid grid-cols-2 gap-2">
-                    <div class="font-semibold">PRP Agent:</div>
-                    <div id="save-prp-model" class="text-gray-600"></div>
-                    
-                    <div class="font-semibold">Dev Agent:</div>
-                    <div id="save-dev-model" class="text-gray-600"></div>
-                    
-                    <div class="font-semibold">Test Agent:</div>
-                    <div id="save-test-model" class="text-gray-600"></div>
-                    
-                    <div class="font-semibold">Doc Agent:</div>
-                    <div id="save-doc-model" class="text-gray-600"></div>
-                </div>
-            </div>
-            
-            <div id="save-models-error" class="hidden mb-4 p-3 bg-red-100 text-red-700 rounded text-sm"></div>
-            
-            <div class="flex gap-2">
-                <button onclick="confirmSaveModels()" 
-                        class="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                    Confirm
-                </button>
-                <button onclick="closeSaveModelsModal()" 
-                        class="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
-                    Cancel
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Agent Error Modal -->
-<div id="agentErrorModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4">
-        <div class="p-6">
-            <div class="flex items-start mb-4">
-                <div class="flex-shrink-0">
-                    <span class="text-4xl">❌</span>
-                </div>
-                <div class="ml-4 flex-1">
-                    <h3 class="text-xl font-bold text-red-800">Agent Error</h3>
-                    <p class="text-sm text-gray-600 mt-1">The agent encountered an error while running.</p>
-                </div>
-            </div>
-            
-            <div class="bg-red-50 border border-red-200 rounded p-4 mb-4">
-                <p id="error-message" class="text-sm text-red-900 whitespace-pre-wrap"></p>
-            </div>
-            
-            <div class="flex justify-end">
-                <button onclick="closeErrorModal()" 
-                        class="px-6 py-2 bg-red-600 text-white rounded hover:bg-red-700">
-                    Close
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
 {% endblock %}
 
 {% block scripts %}
@@ -365,13 +282,10 @@
 // Model dropdown toggle
 function toggleModelDropdowns() {
     const dropdowns = document.getElementById('modelDropdowns');
-    const buttons = document.getElementById('modelButtons');
     if (dropdowns.style.display === 'none') {
         dropdowns.style.display = 'grid';
-        buttons.style.display = 'flex';
     } else {
         dropdowns.style.display = 'none';
-        buttons.style.display = 'none';
     }
 }
 
@@ -385,14 +299,6 @@ async function loadProfiles() {
             const profiles = data.profiles;
             const selects = ['prp', 'dev', 'test', 'doc'];
             
-            // State'teki mevcut değerleri al
-            const stateModels = {
-                prp: '{{ state.agent_models.prp_agent if state.agent_models else "" }}',
-                dev: '{{ state.agent_models.dev_agent if state.agent_models else "" }}',
-                test: '{{ state.agent_models.test_agent if state.agent_models else "" }}',
-                doc: '{{ state.agent_models.doc_agent if state.agent_models else "" }}'
-            };
-            
             selects.forEach(agent => {
                 const select = document.getElementById(`model-${agent}`);
                 if (select) {
@@ -405,90 +311,12 @@ async function loadProfiles() {
                         }
                         select.appendChild(option);
                     });
-                    
-                    // State'teki değeri seç
-                    if (stateModels[agent]) {
-                        select.value = stateModels[agent];
-                    }
                 }
             });
         }
     } catch (error) {
         console.error('Error loading profiles:', error);
     }
-}
-
-// Save Models Modal Functions
-function showSaveModelsModal() {
-    const prpModel = document.getElementById('model-prp').value;
-    const devModel = document.getElementById('model-dev').value;
-    const testModel = document.getElementById('model-test').value;
-    const docModel = document.getElementById('model-doc').value;
-    
-    document.getElementById('save-prp-model').textContent = prpModel || 'Default (from state)';
-    document.getElementById('save-dev-model').textContent = devModel || 'Default (from state)';
-    document.getElementById('save-test-model').textContent = testModel || 'Default (from state)';
-    document.getElementById('save-doc-model').textContent = docModel || 'Default (from state)';
-    
-    document.getElementById('saveModelsModal').classList.remove('hidden');
-}
-
-function closeSaveModelsModal() {
-    document.getElementById('saveModelsModal').classList.add('hidden');
-    document.getElementById('save-models-error').classList.add('hidden');
-}
-
-async function confirmSaveModels() {
-    const prpModel = document.getElementById('model-prp').value;
-    const devModel = document.getElementById('model-dev').value;
-    const testModel = document.getElementById('model-test').value;
-    const docModel = document.getElementById('model-doc').value;
-    
-    const agentModels = {};
-    
-    if (prpModel) agentModels.prp_agent = prpModel;
-    if (devModel) agentModels.dev_agent = devModel;
-    if (testModel) agentModels.test_agent = testModel;
-    if (docModel) agentModels.doc_agent = docModel;
-    
-    try {
-        const response = await fetch(`/api/save-agent-models/{{ project_id }}`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({agent_models: agentModels})
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            closeSaveModelsModal();
-            alert('✅ Model defaults saved successfully!');
-            location.reload();
-        } else {
-            document.getElementById('save-models-error').textContent = data.error;
-            document.getElementById('save-models-error').classList.remove('hidden');
-        }
-    } catch (error) {
-        document.getElementById('save-models-error').textContent = 'Network error: ' + error.message;
-        document.getElementById('save-models-error').classList.remove('hidden');
-    }
-}
-
-function resetModelSelections() {
-    document.getElementById('model-prp').value = '';
-    document.getElementById('model-dev').value = '';
-    document.getElementById('model-test').value = '';
-    document.getElementById('model-doc').value = '';
-}
-
-// Error Modal Functions
-function showErrorModal(errorMessage) {
-    document.getElementById('error-message').textContent = errorMessage;
-    document.getElementById('agentErrorModal').classList.remove('hidden');
-}
-
-function closeErrorModal() {
-    document.getElementById('agentErrorModal').classList.add('hidden');
 }
 
 // Run agent with model selection
@@ -503,7 +331,6 @@ async function runAgent(agentType) {
     outputDiv.classList.remove('hidden');
     loadingDiv.classList.remove('hidden');
     outputContent.textContent = '';
-    outputContent.classList.remove('text-red-600');
     
     try {
         const payload = {
@@ -526,76 +353,14 @@ async function runAgent(agentType) {
         
         if (data.success) {
             outputContent.textContent = data.output || 'Agent completed successfully';
-            setTimeout(() => location.reload(), 3000);
         } else {
-            // Show error modal instead of inline
-            showErrorModal(data.error || 'Unknown error');
             outputContent.textContent = 'Error: ' + (data.error || 'Unknown error');
             outputContent.classList.add('text-red-600');
         }
+        
+        setTimeout(() => location.reload(), 3000);
     } catch (error) {
         loadingDiv.classList.add('hidden');
-        showErrorModal('Network error: ' + error.message);
-        outputContent.textContent = 'Error: ' + error.message;
-        outputContent.classList.add('text-red-600');
-    }
-}
-
-// Error Modal Functions
-function showErrorModal(errorMessage) {
-    document.getElementById('error-message').textContent = errorMessage;
-    document.getElementById('agentErrorModal').classList.remove('hidden');
-}
-
-function closeErrorModal() {
-    document.getElementById('agentErrorModal').classList.add('hidden');
-}
-
-// Run agent with model selection and error modal
-async function runAgent(agentType) {
-    const modelSelect = document.getElementById(`model-${agentType}`);
-    const modelOverride = modelSelect ? modelSelect.value : '';
-    
-    const outputDiv = document.getElementById('agent-output');
-    const outputContent = document.getElementById('agent-output-content');
-    const loadingDiv = document.getElementById('loading');
-    
-    outputDiv.classList.remove('hidden');
-    loadingDiv.classList.remove('hidden');
-    outputContent.textContent = '';
-    outputContent.classList.remove('text-red-600');
-    
-    try {
-        const payload = {
-            project_id: '{{ project_id }}',
-            agent: agentType
-        };
-        
-        if (modelOverride) {
-            payload.model_override = modelOverride;
-        }
-        
-        const response = await fetch('/api/run-agent', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        
-        const data = await response.json();
-        loadingDiv.classList.add('hidden');
-        
-        if (data.success) {
-            outputContent.textContent = data.output || 'Agent completed successfully';
-            setTimeout(() => location.reload(), 3000);
-        } else {
-            // Show error modal instead of inline
-            showErrorModal(data.error || 'Unknown error');
-            outputContent.textContent = 'Error: ' + (data.error || 'Unknown error');
-            outputContent.classList.add('text-red-600');
-        }
-    } catch (error) {
-        loadingDiv.classList.add('hidden');
-        showErrorModal('Network error: ' + error.message);
         outputContent.textContent = 'Error: ' + error.message;
         outputContent.classList.add('text-red-600');
     }
