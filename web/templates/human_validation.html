@@ -3,6 +3,30 @@
 {% block title %}Human Validation - {{ project.meta.project_id }}{% endblock %}
 
 {% block content %}
+<style>
+.test-scroll-container {
+    max-height: 450px;
+    overflow-y: auto;
+    padding-right: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: #888 #f1f1f1;
+}
+.test-scroll-container::-webkit-scrollbar {
+    width: 8px;
+}
+.test-scroll-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+.test-scroll-container::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+.test-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+</style>
+
 <div class="mb-6">
     <div class="flex justify-between items-center">
         <div>
@@ -20,106 +44,179 @@
     </div>
 </div>
 
-<!-- Automatic Test Results -->
-<div class="bg-white rounded-lg shadow-md p-6 mb-6">
-    <h2 class="text-xl font-bold text-gray-900 mb-4">🧪 Automatic Test Results</h2>
-    
-    {% if test_results %}
-    <div class="space-y-2">
-        {% for test in test_results %}
-        <div class="flex items-center p-3 bg-gray-50 rounded">
-            <span class="text-2xl mr-3">
-                {% if test.passed %}✅{% else %}❌{% endif %}
-            </span>
-            <div class="flex-1">
-                <p class="font-semibold">{{ test.name }}</p>
-                {% if test.message %}
-                <p class="text-sm text-gray-600">{{ test.message }}</p>
-                {% endif %}
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-    {% else %}
-    <p class="text-gray-500 text-center py-4">No automatic tests run yet</p>
-    {% endif %}
-</div>
-
-<!-- Manual Test Scenarios -->
-<div class="bg-white rounded-lg shadow-md p-6 mb-6">
-    <div class="flex justify-between items-center mb-4">
-        <h2 class="text-xl font-bold text-gray-900">📋 Manual Test Scenarios</h2>
-        <button onclick="toggleAllScenarios()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200">
-            Toggle All
-        </button>
-    </div>
-    
-    <div id="scenarios-container">
-        {% if manual_tests %}
-        {% for test in manual_tests %}
-        <div class="border rounded-lg mb-3 scenario-item" data-scenario-id="{{ loop.index }}">
-            <button onclick="toggleScenario({{ loop.index }})" class="w-full text-left p-4 flex justify-between items-center hover:bg-gray-50">
-                <span class="font-semibold">Test {{ loop.index }}: {{ test.title }}</span>
-                <span class="scenario-arrow">▼</span>
-            </button>
-            <div id="scenario-{{ loop.index }}" class="scenario-content hidden p-4 bg-gray-50 border-t">
-                {% if test.input %}
-                <p class="text-gray-700 mb-2"><strong>Input:</strong> {{ test.input }}</p>
-                {% endif %}
-                {% if test.expected %}
-                <p class="text-gray-700 mb-2"><strong>Expected:</strong> {{ test.expected }}</p>
-                {% endif %}
-                {% if test.command %}
-                <p class="text-gray-700 mb-4"><strong>Command:</strong> <code class="bg-gray-200 px-2 py-1 rounded">{{ test.command }}</code></p>
-                {% endif %}
-                
-                <div class="flex space-x-2">
-                    <button onclick="markTest({{ loop.index }}, 'pass')" class="flex-1 px-4 py-2 bg-green-100 text-green-800 rounded hover:bg-green-200">
-                        ✓ Pass
-                    </button>
-                    <button onclick="markTest({{ loop.index }}, 'fail')" class="flex-1 px-4 py-2 bg-red-100 text-red-800 rounded hover:bg-red-200">
-                        ✗ Fail
-                    </button>
-                    <button onclick="markTest({{ loop.index }}, 'skip')" class="flex-1 px-4 py-2 bg-gray-100 text-gray-800 rounded hover:bg-gray-200">
-                        − Skip
-                    </button>
+<!-- Split-Screen Grid Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+    <!-- Left Panel (60% = 3 cols) -->
+    <div class="lg:col-span-3 space-y-6">
+        <!-- Automatic Test Results -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">🧪 Automatic Test Results</h2>
+            
+            {% if test_results %}
+            <div class="space-y-2">
+                {% for test in test_results %}
+                <div class="flex items-center p-3 bg-gray-50 rounded">
+                    <span class="text-2xl mr-3">
+                        {% if test.passed %}✅{% else %}❌{% endif %}
+                    </span>
+                    <div class="flex-1">
+                        <p class="font-semibold">{{ test.name }}</p>
+                        {% if test.message %}
+                        <p class="text-sm text-gray-600">{{ test.message }}</p>
+                        {% endif %}
+                    </div>
                 </div>
-                
-                <input type="hidden" id="test-result-{{ loop.index }}" value="">
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-gray-500 text-center py-4">No automatic tests run yet</p>
+            {% endif %}
+        </div>
+
+        <!-- Manual Test Scenarios -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-900">📋 Manual Test Scenarios</h2>
+                <button onclick="toggleAllScenarios()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200">
+                    Toggle All
+                </button>
+            </div>
+            
+            <!-- Scrollable test container -->
+            <div class="test-scroll-container">
+                <div id="scenarios-container">
+                    {% if manual_tests %}
+                    {% for test in manual_tests %}
+                <div class="border rounded-lg mb-3 scenario-item" data-scenario-id="{{ loop.index }}">
+                    <button onclick="toggleScenario({{ loop.index }})" class="w-full text-left p-4 flex justify-between items-center hover:bg-gray-50">
+                        <span class="font-semibold">Test {{ loop.index }}: {{ test.title }}</span>
+                        <span class="scenario-arrow">▼</span>
+                    </button>
+                    <div id="scenario-{{ loop.index }}" class="scenario-content hidden p-4 bg-gray-50 border-t">
+                        {% if test.input %}
+                        <p class="text-gray-700 mb-2"><strong>Input:</strong> {{ test.input }}</p>
+                        {% endif %}
+                        {% if test.expected %}
+                        <p class="text-gray-700 mb-2"><strong>Expected:</strong> {{ test.expected }}</p>
+                        {% endif %}
+                        {% if test.command %}
+                        <p class="text-gray-700 mb-4"><strong>Command:</strong> <code class="bg-gray-200 px-2 py-1 rounded">{{ test.command }}</code></p>
+                        {% endif %}
+                        
+                        <div class="flex space-x-2">
+                            <button onclick="markTest({{ loop.index }}, 'pass')" class="flex-1 px-4 py-2 bg-green-100 text-green-800 rounded hover:bg-green-200">
+                                ✓ Pass
+                            </button>
+                            <button onclick="markTest({{ loop.index }}, 'fail')" class="flex-1 px-4 py-2 bg-red-100 text-red-800 rounded hover:bg-red-200">
+                                ✗ Fail
+                            </button>
+                            <button onclick="markTest({{ loop.index }}, 'skip')" class="flex-1 px-4 py-2 bg-gray-100 text-gray-800 rounded hover:bg-gray-200">
+                                − Skip
+                            </button>
+                        </div>
+                        
+                        <input type="hidden" id="test-result-{{ loop.index }}" value="">
+                    </div>
+                </div>
+                {% endfor %}
+                    {% else %}
+                    <p class="text-gray-500 text-center py-4">No manual test scenarios defined</p>
+                    {% endif %}
+                </div>
+
+                <!-- Saved Custom Scenarios Container -->
+                <div id="saved-custom-scenarios"></div>
+            </div>
+
+            <!-- Add Custom Scenario Button -->
+            <div class="mt-4 pt-4 border-t">
+                <button onclick="addCustomScenario()" class="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold">
+                    + Add Custom Scenario
+                </button>
             </div>
         </div>
-        {% endfor %}
-        {% else %}
-        <p class="text-gray-500 text-center py-4">No manual test scenarios defined</p>
-        {% endif %}
+
+        <!-- Feedback Section -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">💬 Feedback & Comments</h2>
+            <textarea id="feedback-text" rows="6" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Add your feedback, observations, or concerns here..."></textarea>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex space-x-4">
+            <button onclick="submitValidation('approve')" class="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold text-lg">
+                ✅ Approve & Continue
+            </button>
+            <button onclick="submitValidation('reject')" class="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold text-lg">
+                ❌ Reject & Request Revision
+            </button>
+        </div>
     </div>
 
-    <!-- Saved Custom Scenarios Container -->
-    <div id="saved-custom-scenarios"></div>
-
-    <!-- Add Custom Scenario Button -->
-    <div class="mt-4 pt-4 border-t">
-        <button onclick="addCustomScenario()" class="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold">
-            + Add Custom Scenario
-        </button>
+    <!-- Right Panel (40% = 2 cols) -->
+    <div class="lg:col-span-2">
+        <div class="bg-white rounded-lg shadow-md p-6 lg:sticky lg:top-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-900">🖥️ Product Preview</h2>
+                <span id="deployment-status" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm font-semibold">
+                    ● Not Deployed
+                </span>
+            </div>
+            
+            <!-- Deployment Controls -->
+            <div class="mb-4 space-y-2">
+                <button onclick="deployProduct()" id="deploy-btn" 
+                        class="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition">
+                    🚀 Deploy for Testing
+                </button>
+                <button onclick="stopDeployment()" id="stop-btn" disabled
+                        class="w-full px-4 py-3 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed font-semibold">
+                    ⏹️ Stop Deployment
+                </button>
+            </div>
+            
+            <!-- Viewer Frame (hidden by default) -->
+            <div id="viewer-container" class="hidden">
+                <div class="mb-2 flex justify-between items-center text-sm">
+                    <span id="deployment-url" class="text-gray-600 truncate mr-2"></span>
+                    <a id="open-fullscreen" href="#" target="_blank" 
+                       class="text-blue-600 hover:text-blue-800 whitespace-nowrap">
+                        ↗ Full Screen
+                    </a>
+                </div>
+                <div class="border-2 border-gray-200 rounded-lg overflow-hidden bg-white" style="height: 500px;">
+                    <iframe id="product-iframe" class="w-full h-full" frameborder="0" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
+                </div>
+                <p class="mt-2 text-xs text-gray-500">
+                    💡 Tip: If iframe is blank, try "Full Screen" button above
+                </p>
+            </div>
+            
+            <!-- Instructions (shown when not deployed) -->
+            <div id="deployment-instructions" class="text-sm text-gray-600 bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <p class="font-semibold mb-2 text-blue-900">👉 How to Test:</p>
+                <ol class="list-decimal list-inside space-y-1.5 text-blue-800">
+                    <li>Click <strong>"Deploy for Testing"</strong> above</li>
+                    <li>Wait for deployment (~10-15 seconds)</li>
+                    <li>Product will appear in preview</li>
+                    <li>Test features and mark results on the left</li>
+                    <li>Add feedback and approve/reject</li>
+                </ol>
+                <div class="mt-3 pt-3 border-t border-blue-200">
+                    <p class="text-xs text-blue-700">
+                        ⚠️ Deployment is temporary and will auto-stop after 30 minutes of inactivity.
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Loading State -->
+            <div id="deployment-loading" class="hidden text-center py-8">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mx-auto mb-4"></div>
+                <p class="text-gray-600 font-semibold">Deploying...</p>
+                <p class="text-sm text-gray-500 mt-1">This may take 10-15 seconds</p>
+            </div>
+        </div>
     </div>
-</div>
-
-<!-- Feedback Section -->
-<div class="bg-white rounded-lg shadow-md p-6 mb-6">
-    <h2 class="text-xl font-bold text-gray-900 mb-4">💬 Feedback & Comments</h2>
-    <textarea id="feedback-text" rows="6" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Add your feedback, observations, or concerns here..."></textarea>
-</div>
-
-
-<!-- Action Buttons -->
-<div class="flex space-x-4 mb-6">
-    <button onclick="submitValidation('approve')" class="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold text-lg">
-        ✅ Approve & Continue
-    </button>
-    <button onclick="submitValidation('reject')" class="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold text-lg">
-        ❌ Reject & Request Revision
-    </button>
 </div>
 
 <!-- Rejection Analysis Modal -->
@@ -191,9 +288,11 @@ let allScenariosExpanded = false;
 let savedCustomScenarios = [];
 let baseTestCount = {{ manual_tests|length if manual_tests else 0 }};
 let aiAnalysisData = null;
+let deploymentCheckInterval = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     loadCustomScenarios();
+    checkDeploymentStatus();
 });
 
 function loadCustomScenarios() {
@@ -332,6 +431,90 @@ function deleteCustomScenario(id) {
     .catch(e => alert('Failed'));
 }
 
+// Deployment Functions
+function checkDeploymentStatus() {
+    fetch('/api/deployment-status/{{ project_id }}')
+        .then(r => r.json())
+        .then(d => {
+            if (d.status === 'deployed') {
+                showDeployedState(d.url);
+            } else {
+                showNotDeployedState();
+            }
+        })
+        .catch(e => console.error('Error checking deployment:', e));
+}
+
+function deployProduct() {
+    const deployBtn = document.getElementById('deploy-btn');
+    const instructions = document.getElementById('deployment-instructions');
+    const loading = document.getElementById('deployment-loading');
+    
+    deployBtn.disabled = true;
+    instructions.classList.add('hidden');
+    loading.classList.remove('hidden');
+    
+    fetch('/api/deploy/{{ project_id }}', {method: 'POST'})
+        .then(r => r.json())
+        .then(d => {
+            loading.classList.add('hidden');
+            if (d.success) {
+                showDeployedState(d.url);
+            } else {
+                alert('Deployment failed: ' + (d.error || 'Unknown error'));
+                instructions.classList.remove('hidden');
+                deployBtn.disabled = false;
+            }
+        })
+        .catch(e => {
+            loading.classList.add('hidden');
+            alert('Deployment failed: ' + e.message);
+            instructions.classList.remove('hidden');
+            deployBtn.disabled = false;
+        });
+}
+
+function stopDeployment() {
+    if (!confirm('Stop deployment? You can redeploy anytime.')) return;
+    
+    fetch('/api/stop-deployment/{{ project_id }}', {method: 'POST'})
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) {
+                showNotDeployedState();
+                alert('Deployment stopped');
+            } else {
+                alert('Failed to stop: ' + (d.error || 'Unknown error'));
+            }
+        })
+        .catch(e => alert('Failed: ' + e.message));
+}
+
+function showDeployedState(url) {
+    document.getElementById('deployment-status').textContent = '● Deployed';
+    document.getElementById('deployment-status').className = 'px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold';
+    document.getElementById('deploy-btn').disabled = true;
+    document.getElementById('stop-btn').disabled = false;
+    document.getElementById('stop-btn').className = 'w-full px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold';
+    document.getElementById('deployment-instructions').classList.add('hidden');
+    document.getElementById('viewer-container').classList.remove('hidden');
+    document.getElementById('deployment-url').textContent = url;
+    document.getElementById('open-fullscreen').href = url;
+    document.getElementById('product-iframe').src = url;
+}
+
+function showNotDeployedState() {
+    document.getElementById('deployment-status').textContent = '● Not Deployed';
+    document.getElementById('deployment-status').className = 'px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm font-semibold';
+    document.getElementById('deploy-btn').disabled = false;
+    document.getElementById('stop-btn').disabled = true;
+    document.getElementById('stop-btn').className = 'w-full px-4 py-3 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed font-semibold';
+    document.getElementById('viewer-container').classList.add('hidden');
+    document.getElementById('deployment-instructions').classList.remove('hidden');
+    document.getElementById('product-iframe').src = '';
+}
+
+// Validation Functions
 function submitValidation(decision) {
     if (decision === 'approve') {
         submitValidationDirect('approve');

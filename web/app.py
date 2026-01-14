@@ -4,7 +4,7 @@ AI Factory Manager - Web UI
 Flask application for managing AI Factory projects
 """
 
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response
 import yaml
 import os
 import subprocess
@@ -60,6 +60,16 @@ def load_project_state(project_id):
         print(f"Error loading state for {project_id}: {e}")
         return None
 
+def save_project_state(project_id, state):
+    """Save project state"""
+    state_file = os.path.join(PROJECTS_DIR, project_id, 'state', 'state.yaml')
+    try:
+        with open(state_file, 'w') as f:
+            yaml.dump(state, f, default_flow_style=False, sort_keys=False)
+        return True
+    except Exception as e:
+        print(f"Error saving state for {project_id}: {e}", flush=True)
+        return False
 
 def get_system_resources():
     """Sistem kaynak kullanımını al"""
@@ -173,49 +183,6 @@ def logout():
     session.pop('logged_in', None)
     flash('Çıkış yaptınız.', 'info')
     return redirect(url_for('login'))
-
-@app.route('/settings', methods=['GET', 'POST'])
-@login_required
-def settings():
-    """Settings sayfası"""
-    if request.method == 'GET':
-        # Load current profiles
-        profiles_file = os.path.join(CONTROL_DIR, 'config', 'llm.profiles.yaml')
-        try:
-            with open(profiles_file, 'r') as f:
-                profiles_data = yaml.safe_load(f)
-            
-            return render_template('settings.html',
-                                 profiles=profiles_data.get('profiles', {}),
-                                 default_profile=profiles_data.get('default_profile', 'gemma-free'))
-        except Exception as e:
-            flash(f'Settings yükleme hatası: {str(e)}', 'error')
-            return redirect(url_for('index'))
-    
-    # POST - Update settings
-    try:
-        action = request.form.get('action')
-        
-        if action == 'set_default_profile':
-            profile_name = request.form.get('profile_name')
-            profiles_file = os.path.join(CONTROL_DIR, 'config', 'llm.profiles.yaml')
-            
-            with open(profiles_file, 'r') as f:
-                profiles_data = yaml.safe_load(f)
-            
-            profiles_data['default_profile'] = profile_name
-            
-            with open(profiles_file, 'w') as f:
-                yaml.dump(profiles_data, f, default_flow_style=False, sort_keys=False)
-            
-            flash(f'Default profile güncellendi: {profile_name}', 'success')
-        
-        return redirect(url_for('settings'))
-    
-    except Exception as e:
-        flash(f'Settings güncelleme hatası: {str(e)}', 'error')
-        return redirect(url_for('settings'))
-
 
 @app.route('/new-project', methods=['GET', 'POST'])
 @login_required
@@ -1060,6 +1027,439 @@ def github_sync():
     except Exception as e:
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
+# AI Factory - Deployment Settings API
+# Add these to app.py
+
+import yaml
+import os
+from datetime import datetime
+
+DEPLOYMENT_CONFIG_PATH = os.path.expanduser("~/projects/ai-factory-control/config/deployment.yaml")
+
+def load_deployment_config():
+    """Load deployment configuration"""
+    try:
+        with open(DEPLOYMENT_CONFIG_PATH, 'r') as f:
+            config = yaml.safe_load(f)
+            return config.get('deployment', {})
+    except FileNotFoundError:
+        # Return defaults if file doesn't exist
+        return {
+            'port_range': {'start': 5001, 'end': 5010},
+            'max_concurrent_deployments': 10,
+            'auto_stop': {'enabled': True, 'idle_timeout_minutes': 30},
+            'startup': {'wait_seconds': 2, 'health_check_retries': 3},
+            'proxy': {'timeout_seconds': 30, 'max_request_size_mb': 10},
+            'logs': {'directory': '/tmp', 'keep_days': 7, 'max_size_mb': 50},
+            'defaults': {'type': 'web_app', 'auto_detect_type': True}
+        }
+    except Exception as e:
+        print(f"Error loading deployment config: {e}", flush=True)
+        return {}
+
+def save_deployment_config(config):
+    """Save deployment configuration"""
+    try:
+        # Read existing file to preserve structure
+        full_config = {'deployment': config}
+        
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(DEPLOYMENT_CONFIG_PATH), exist_ok=True)
+        
+        # Write with comments
+        with open(DEPLOYMENT_CONFIG_PATH, 'w') as f:
+            f.write("# AI Factory - Deployment Settings\n")
+            f.write(f"# Last updated: {datetime.now().isoformat()}\n\n")
+            yaml.dump(full_config, f, default_flow_style=False, sort_keys=False)
+        
+        return True
+    except Exception as e:
+        print(f"Error saving deployment config: {e}", flush=True)
+        return False
+
+# Update settings route to include deployment config
+@app.route('/settings')
+def settings():
+    if not session.get('logged_in'):
+       return redirect(url_for('login'))
+    
+    # Load LLM profiles
+    profiles_path = os.path.expanduser("~/projects/ai-factory-control/config/llm.profiles.yaml")
+    try:
+        with open(profiles_path, 'r') as f:
+            profiles_config = yaml.safe_load(f)
+    except:
+        profiles_config = {'profiles': {}, 'default_profile': 'gemma-free'}
+    
+    # Load deployment config
+    deployment_config = load_deployment_config()
+    
+    return render_template('settings.html', 
+                         profiles=profiles_config.get('profiles', {}),
+                         default_profile=profiles_config.get('default_profile', 'gemma-free'),
+                         deployment_config=deployment_config)
+
+@app.route('/api/save-deployment-settings', methods=['POST'])
+def save_deployment_settings():
+    """Save deployment settings"""
+    try:
+        data = request.get_json()
+        
+        # Validation
+        if data['port_range']['start'] >= data['port_range']['end']:
+            return jsonify({'success': False, 'error': 'Invalid port range'}), 400
+        
+        if data['max_concurrent_deployments'] < 1 or data['max_concurrent_deployments'] > 20:
+            return jsonify({'success': False, 'error': 'Max concurrent must be 1-20'}), 400
+        
+        if data['auto_stop']['idle_timeout_minutes'] < 5 or data['auto_stop']['idle_timeout_minutes'] > 240:
+            return jsonify({'success': False, 'error': 'Idle timeout must be 5-240 minutes'}), 400
+        
+        # Add defaults if not present
+        if 'defaults' not in data:
+            data['defaults'] = {'type': 'web_app', 'auto_detect_type': True}
+        
+        # Save
+        success = save_deployment_config(data)
+        
+        if success:
+            # Reload port range in memory
+            global AVAILABLE_PORTS
+            AVAILABLE_PORTS = list(range(data['port_range']['start'], data['port_range']['end'] + 1))
+            
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'error': 'Failed to save config'}), 500
+            
+    except Exception as e:
+        print(f"Save deployment settings error: {e}", flush=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/reset-deployment-settings', methods=['POST'])
+def reset_deployment_settings():
+    """Reset deployment settings to defaults"""
+    try:
+        defaults = {
+            'port_range': {'start': 5001, 'end': 5010},
+            'max_concurrent_deployments': 10,
+            'auto_stop': {'enabled': True, 'idle_timeout_minutes': 30},
+            'startup': {'wait_seconds': 2, 'health_check_retries': 3},
+            'proxy': {'timeout_seconds': 30, 'max_request_size_mb': 10},
+            'logs': {'directory': '/tmp', 'keep_days': 7, 'max_size_mb': 50},
+            'defaults': {'type': 'web_app', 'auto_detect_type': True}
+        }
+        
+        success = save_deployment_config(defaults)
+        
+        if success:
+            # Reload port range
+            global AVAILABLE_PORTS
+            AVAILABLE_PORTS = list(range(5001, 5011))
+            
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'error': 'Failed to reset'}), 500
+            
+    except Exception as e:
+        print(f"Reset deployment settings error: {e}", flush=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# Update deployment functions to use config
+def get_available_port():
+    """Get next available port from config"""
+    config = load_deployment_config()
+    port_range = config.get('port_range', {'start': 5001, 'end': 5010})
+    
+    used_ports = set(deployed_projects.values())
+    for port in range(port_range['start'], port_range['end'] + 1):
+        if port not in used_ports:
+            return port
+    return None
+
+# Initialize AVAILABLE_PORTS from config on startup
+deployment_config = load_deployment_config()
+AVAILABLE_PORTS = list(range(
+    deployment_config.get('port_range', {}).get('start', 5001),
+    deployment_config.get('port_range', {}).get('end', 5010) + 1
+))
+# AI Factory - Deployment API Endpoints
+# Add these to app.py
+
+import subprocess
+import os
+from datetime import datetime
+
+# Port management (will be loaded from config)
+AVAILABLE_PORTS = []  # Initialized on startup from config
+deployed_projects = {}  # {project_id: port}
+
+def get_available_port():
+    """Get next available port from config"""
+    config = load_deployment_config()
+    port_range = config.get('port_range', {'start': 5001, 'end': 5010})
+    
+    used_ports = set(deployed_projects.values())
+    for port in range(port_range['start'], port_range['end'] + 1):
+        if port not in used_ports:
+            return port
+    return None
+
+# Initialize AVAILABLE_PORTS from config on startup
+try:
+    deployment_config = load_deployment_config()
+    AVAILABLE_PORTS = list(range(
+        deployment_config.get('port_range', {}).get('start', 5001),
+        deployment_config.get('port_range', {}).get('end', 5010) + 1
+    ))
+    print(f"Initialized deployment with port range: {deployment_config.get('port_range')}", flush=True)
+except Exception as e:
+    print(f"Error initializing deployment config: {e}", flush=True)
+    AVAILABLE_PORTS = list(range(5001, 5011))
+
+def load_deployments():
+    """Load deployments from all project states"""
+    global deployed_projects
+    deployed_projects = {}
+    projects_dir = os.path.expanduser("~/projects")
+    
+    for project_dir in os.listdir(projects_dir):
+        if not project_dir.startswith("product-"):
+            continue
+        
+        state_file = os.path.join(projects_dir, project_dir, "state", "state.yaml")
+        if os.path.exists(state_file):
+            try:
+                with open(state_file, 'r') as f:
+                    state = yaml.safe_load(f)
+                if state.get('deployment', {}).get('status') == 'deployed':
+                    port = state['deployment'].get('port')
+                    if port:
+                        deployed_projects[project_dir] = port
+            except:
+                pass
+
+# Load deployments on startup
+load_deployments()
+
+@app.route('/api/deployment-status/<project_id>', methods=['GET'])
+def get_deployment_status(project_id):
+    """Get current deployment status"""
+    try:
+        state = load_project_state(project_id)
+        deployment = state.get('deployment', {})
+        
+        if deployment.get('status') == 'deployed':
+            return jsonify({
+                'success': True,
+                'status': 'deployed',
+                'url': deployment.get('url'),
+                'port': deployment.get('port'),
+                'started_at': deployment.get('started_at')
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'status': 'not_deployed'
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/deploy/<project_id>', methods=['POST'])
+def deploy_project(project_id):
+    """Deploy project for testing"""
+    try:
+        # Load config
+        config = load_deployment_config()
+        
+        # Check if already deployed
+        state = load_project_state(project_id)
+        if state.get('deployment', {}).get('status') == 'deployed':
+            return jsonify({'success': False, 'error': 'Already deployed'}), 400
+        
+        # Get available port
+        port = get_available_port()
+        if not port:
+            max_concurrent = config.get('max_concurrent_deployments', 10)
+            return jsonify({'success': False, 'error': f'No available ports (max {max_concurrent} deployments)'}), 503
+        
+        # Run deploy script
+        script_path = os.path.expanduser("~/projects/ai-factory-control/scripts/deploy-project.sh")
+        startup_wait = config.get('startup', {}).get('wait_seconds', 2)
+        
+        result = subprocess.run(
+            [script_path, project_id, str(port), str(startup_wait)],
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        
+        if result.returncode != 0:
+            return jsonify({
+                'success': False,
+                'error': f'Deployment failed: {result.stderr}'
+            }), 500
+        
+        # Extract PID from output
+        pid = None
+        for line in result.stdout.split('\n'):
+            if 'PID:' in line:
+                pid = line.split('PID:')[1].strip().rstrip(')')
+        
+        # Update state
+        deployment = {
+            'status': 'deployed',
+            'type': 'web_app',  # TODO: Auto-detect
+            'port': port,
+            'url': f'/preview/{project_id}',
+            'pid': pid,
+            'started_at': datetime.now().isoformat(),
+            'last_activity': datetime.now().isoformat()
+        }
+        
+        state['deployment'] = deployment
+        save_project_state(project_id, state)
+        
+        # Track deployment
+        deployed_projects[project_id] = port
+        
+        return jsonify({
+            'success': True,
+            'url': f'/preview/{project_id}',
+            'port': port,
+            'pid': pid
+        })
+        
+    except subprocess.TimeoutExpired:
+        return jsonify({'success': False, 'error': 'Deployment timeout (60s)'}), 500
+    except Exception as e:
+        print(f"Deploy error: {e}", flush=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/stop-deployment/<project_id>', methods=['POST'])
+def stop_deployment(project_id):
+    """Stop project deployment"""
+    try:
+        state = load_project_state(project_id)
+        deployment = state.get('deployment', {})
+        
+        if deployment.get('status') != 'deployed':
+            return jsonify({'success': False, 'error': 'Not deployed'}), 400
+        
+        # Kill process
+        pid = deployment.get('pid')
+        if pid:
+            try:
+                subprocess.run(['kill', str(pid)], check=False)
+            except:
+                pass
+        
+        # Update state
+        deployment['status'] = 'stopped'
+        deployment['stopped_at'] = datetime.now().isoformat()
+        state['deployment'] = deployment
+        save_project_state(project_id, state)
+        
+        # Remove from tracking
+        if project_id in deployed_projects:
+            del deployed_projects[project_id]
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        print(f"Stop error: {e}", flush=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/preview/<project_id>')
+@app.route('/preview/<project_id>/<path:subpath>')
+def preview_proxy(project_id, subpath=''):
+    """Proxy requests to deployed project"""
+    try:
+        # Load config
+        config = load_deployment_config()
+        proxy_timeout = config.get('proxy', {}).get('timeout_seconds', 30)
+        
+        state = load_project_state(project_id)
+        deployment = state.get('deployment', {})
+        
+        if deployment.get('status') != 'deployed':
+            return "Project not deployed", 404
+        
+        port = deployment.get('port')
+        if not port:
+            return "Port not assigned", 500
+        
+        # Update last activity
+        deployment['last_activity'] = datetime.now().isoformat()
+        save_project_state(project_id, state)
+        
+        # Proxy to local port
+        import requests
+        target_url = f"http://127.0.0.1:{port}/{subpath}"
+        
+        # Forward request
+        resp = requests.request(
+            method=request.method,
+            url=target_url,
+            headers={k: v for k, v in request.headers if k.lower() != 'host'},
+            data=request.get_data(),
+            cookies=request.cookies,
+            allow_redirects=False,
+            timeout=proxy_timeout
+        )
+        
+        # Return response
+        excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+        headers = [(k, v) for k, v in resp.raw.headers.items() if k.lower() not in excluded_headers]
+        
+        return Response(resp.content, resp.status_code, headers)
+        
+    except requests.exceptions.ConnectionError:
+        return "Service not running", 503
+    except requests.exceptions.Timeout:
+        return "Service timeout", 504
+    except Exception as e:
+        print(f"Proxy error: {e}", flush=True)
+        return f"Proxy error: {str(e)}", 500
+
+@app.route('/preview/<project_id>/api/<path:api_path>', methods=['GET', 'POST'])
+def preview_api_proxy(project_id, api_path):
+    """Proxy API calls from iframe to deployed project"""
+    try:
+        config = load_deployment_config()
+        proxy_timeout = config.get('proxy', {}).get('timeout_seconds', 30)
+        
+        state = load_project_state(project_id)
+        deployment = state.get('deployment', {})
+        
+        if deployment.get('status') != 'deployed':
+            return jsonify({'error': 'Project not deployed'}), 404
+        
+        port = deployment.get('port')
+        if not port:
+            return jsonify({'error': 'Port not assigned'}), 500
+        
+        # Proxy to local port API
+        import requests
+        target_url = f"http://127.0.0.1:{port}/api/{api_path}"
+        
+        # Forward request
+        resp = requests.request(
+            method=request.method,
+            url=target_url,
+            headers={k: v for k, v in request.headers if k.lower() not in ['host', 'content-length']},
+            data=request.get_data(),
+            json=request.get_json() if request.is_json else None,
+            allow_redirects=False,
+            timeout=proxy_timeout
+        )
+        
+        # Return JSON response
+        return Response(resp.content, resp.status_code, {'Content-Type': 'application/json'})
+        
+    except Exception as e:
+        print(f"API Proxy error: {e}", flush=True)
+        return jsonify({'error': str(e)}), 500
+
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)

@@ -1,14 +1,17 @@
+# AI Factory - State Template v1.4
+# Template for new projects
+
 meta:
-  project_id: __PROJECT_ID__
-  repo_url: https://github.com/seeinsideme79-bot/__PROJECT_ID__
-  created_at: __DATE__
+  project_id: PLACEHOLDER_PROJECT_ID
+  repo_url: PLACEHOLDER_REPO_URL
+  created_at: PLACEHOLDER_TIMESTAMP
 
 phase: idea
 
 version:
-  prp: "0.0"
-  code: "0.0.0"
-  docs: "0.0"
+  prp: null
+  code: null
+  docs: null
 
 blocking:
   is_blocked: false
@@ -22,19 +25,19 @@ actors:
 last_event:
   agent: null
   action: "Project created"
-  timestamp: __TIMESTAMP__
+  timestamp: PLACEHOLDER_TIMESTAMP
   result: success
   model: null
 
 next_action:
   agent: prp_agent
-  action: "Create initial PRP from vision"
+  action: "Generate PRP from vision"
   requires_human_approval: true
 
 artifacts:
-  prp: prp/prp.md
-  tests: tests/test_specs.md
-  docs: docs/architecture.md
+  prp: null
+  tests: null
+  docs: null
 
 health:
   test_pass_rate: null
@@ -51,3 +54,12 @@ agent_models:
   test_agent: "gemma-free"
   doc_agent: "gemma-free"
   rejection_analyzer: "gemma-free"
+
+deployment:
+  status: null
+  type: web_app
+  port: null
+  url: null
+  pid: null
+  started_at: null
+  last_activity: null

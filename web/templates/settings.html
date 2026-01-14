@@ -100,6 +100,221 @@
             </tbody>
         </table>
     </div>
+
+<!-- AI Factory - Deployment Settings Tab -->
+<!-- Add this to settings.html after LLM Profiles section -->
+
+<div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">🚀 Deployment Settings</h2>
+    
+    <form id="deployment-settings-form" onsubmit="saveDeploymentSettings(event)">
+        <!-- Port Management -->
+        <div class="mb-6 pb-6 border-b">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">🔌 Port Management</h3>
+            
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Port Range Start</label>
+                    <input type="number" id="port-start" name="port_start" value="{{ deployment_config.port_range.start }}" 
+                           class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500" 
+                           min="5000" max="9999" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Port Range End</label>
+                    <input type="number" id="port-end" name="port_end" value="{{ deployment_config.port_range.end }}" 
+                           class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500" 
+                           min="5000" max="9999" required>
+                </div>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Max Concurrent Deployments</label>
+                <input type="number" id="max-concurrent" name="max_concurrent" value="{{ deployment_config.max_concurrent_deployments }}" 
+                       class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500" 
+                       min="1" max="20" required>
+                <p class="text-sm text-gray-500 mt-1">Maximum number of projects that can be deployed simultaneously</p>
+            </div>
+        </div>
+        
+        <!-- Auto-stop Configuration -->
+        <div class="mb-6 pb-6 border-b">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">⏱️ Auto-Stop Configuration</h3>
+            
+            <div class="mb-4">
+                <label class="flex items-center">
+                    <input type="checkbox" id="auto-stop-enabled" name="auto_stop_enabled" 
+                           {% if deployment_config.auto_stop.enabled %}checked{% endif %}
+                           class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500">
+                    <span class="ml-3 text-gray-900 font-semibold">Enable Auto-Stop</span>
+                </label>
+                <p class="text-sm text-gray-500 mt-1 ml-8">Automatically stop deployments after idle timeout</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Idle Timeout (minutes)</label>
+                <input type="number" id="idle-timeout" name="idle_timeout" value="{{ deployment_config.auto_stop.idle_timeout_minutes }}" 
+                       class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500" 
+                       min="5" max="240" required>
+                <p class="text-sm text-gray-500 mt-1">Stop deployment after this many minutes of inactivity (5-240 minutes)</p>
+            </div>
+        </div>
+        
+        <!-- Startup Configuration -->
+        <div class="mb-6 pb-6 border-b">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">🚀 Startup Configuration</h3>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Startup Wait (seconds)</label>
+                    <input type="number" id="startup-wait" name="startup_wait" value="{{ deployment_config.startup.wait_seconds }}" 
+                           class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500" 
+                           min="1" max="30" required>
+                    <p class="text-sm text-gray-500 mt-1">Wait time after starting process</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Health Check Retries</label>
+                    <input type="number" id="health-retries" name="health_retries" value="{{ deployment_config.startup.health_check_retries }}" 
+                           class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500" 
+                           min="1" max="10" required>
+                    <p class="text-sm text-gray-500 mt-1">Number of health check attempts</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Proxy Configuration -->
+        <div class="mb-6 pb-6 border-b">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">🌐 Proxy Configuration</h3>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Proxy Timeout (seconds)</label>
+                    <input type="number" id="proxy-timeout" name="proxy_timeout" value="{{ deployment_config.proxy.timeout_seconds }}" 
+                           class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500" 
+                           min="5" max="300" required>
+                    <p class="text-sm text-gray-500 mt-1">Request timeout for proxy connections</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Max Request Size (MB)</label>
+                    <input type="number" id="max-request-size" name="max_request_size" value="{{ deployment_config.proxy.max_request_size_mb }}" 
+                           class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500" 
+                           min="1" max="100" required>
+                    <p class="text-sm text-gray-500 mt-1">Maximum size of proxied requests</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Log Configuration -->
+        <div class="mb-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">📋 Log Configuration</h3>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Log Directory</label>
+                <input type="text" id="log-directory" name="log_directory" value="{{ deployment_config.logs.directory }}" 
+                       class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500" 
+                       required>
+                <p class="text-sm text-gray-500 mt-1">Directory for deployment logs</p>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Keep Logs (days)</label>
+                    <input type="number" id="keep-logs" name="keep_logs" value="{{ deployment_config.logs.keep_days }}" 
+                           class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500" 
+                           min="1" max="90" required>
+                    <p class="text-sm text-gray-500 mt-1">Auto-delete logs older than this</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Max Log Size (MB)</label>
+                    <input type="number" id="max-log-size" name="max_log_size" value="{{ deployment_config.logs.max_size_mb }}" 
+                           class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500" 
+                           min="1" max="1000" required>
+                    <p class="text-sm text-gray-500 mt-1">Maximum size for individual log files</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Action Buttons -->
+        <div class="flex space-x-4">
+            <button type="submit" class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold">
+                💾 Save Deployment Settings
+            </button>
+            <button type="button" onclick="resetDeploymentSettings()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold">
+                🔄 Reset to Defaults
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+function saveDeploymentSettings(event) {
+    event.preventDefault();
+    
+    const settings = {
+        port_range: {
+            start: parseInt(document.getElementById('port-start').value),
+            end: parseInt(document.getElementById('port-end').value)
+        },
+        max_concurrent_deployments: parseInt(document.getElementById('max-concurrent').value),
+        auto_stop: {
+            enabled: document.getElementById('auto-stop-enabled').checked,
+            idle_timeout_minutes: parseInt(document.getElementById('idle-timeout').value)
+        },
+        startup: {
+            wait_seconds: parseInt(document.getElementById('startup-wait').value),
+            health_check_retries: parseInt(document.getElementById('health-retries').value)
+        },
+        proxy: {
+            timeout_seconds: parseInt(document.getElementById('proxy-timeout').value),
+            max_request_size_mb: parseInt(document.getElementById('max-request-size').value)
+        },
+        logs: {
+            directory: document.getElementById('log-directory').value,
+            keep_days: parseInt(document.getElementById('keep-logs').value),
+            max_size_mb: parseInt(document.getElementById('max-log-size').value)
+        }
+    };
+    
+    // Validation
+    if (settings.port_range.start >= settings.port_range.end) {
+        alert('Port range start must be less than end');
+        return;
+    }
+    
+    // Save
+    fetch('/api/save-deployment-settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(settings)
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) {
+            alert('✅ Deployment settings saved!');
+            location.reload();
+        } else {
+            alert('❌ Error: ' + d.error);
+        }
+    })
+    .catch(e => alert('❌ Failed: ' + e.message));
+}
+
+function resetDeploymentSettings() {
+    if (!confirm('Reset all deployment settings to defaults?')) return;
+    
+    fetch('/api/reset-deployment-settings', {method: 'POST'})
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) {
+                alert('✅ Settings reset!');
+                location.reload();
+            } else {
+                alert('❌ Error: ' + d.error);
+            }
+        })
+        .catch(e => alert('❌ Failed: ' + e.message));
+}
+</script>
+
 </div>
 
 <!-- System Info Section -->

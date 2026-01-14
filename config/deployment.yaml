@@ -1,0 +1,42 @@
+# AI Factory - Deployment Settings
+# Configurable via Settings > Deployment page
+
+deployment:
+  # Port Management
+  port_range:
+    start: 5001
+    end: 5010
+  
+  max_concurrent_deployments: 10
+  
+  # Auto-stop Configuration
+  auto_stop:
+    enabled: true
+    idle_timeout_minutes: 30
+  
+  # Startup Configuration
+  startup:
+    wait_seconds: 2
+    health_check_retries: 3
+  
+  # Proxy Configuration
+  proxy:
+    timeout_seconds: 30
+    max_request_size_mb: 10
+  
+  # Log Configuration
+  logs:
+    directory: /tmp
+    keep_days: 7
+    max_size_mb: 50
+  
+  # Default Settings
+  defaults:
+    type: web_app
+    auto_detect_type: true
+
+# Future: Custom Commands (Session 011+)
+# custom_commands:
+#   flask:
+#     detect_pattern: "requirements.txt"
+#     command: "python3 -m flask run --host=127.0.0.1 --port={port}"
