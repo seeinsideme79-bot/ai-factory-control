@@ -11,3 +11,8 @@ projects:
     repo: https://github.com/seeinsideme79-bot/product-counter-cli
     phase: idea
     created_at: 2026-01-07
+
+  - id: product-counter-v2
+    repo: https://github.com/seeinsideme79-bot/product-counter-v2
+    phase: idea
+    created_at: 2026-01-15
