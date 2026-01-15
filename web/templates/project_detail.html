@@ -167,6 +167,26 @@
     </div>
 
     <!-- Phase Info -->
+    <!-- Vision Input (only for idea phase) -->
+    {% if state.phase == 'idea' %}
+    <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-sm p-6 mb-6">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">📝 Product Vision</h3>
+        <p class="text-sm text-gray-600 mb-3">
+        Describe your product vision. The PRP Agent will use this to generate detailed requirements.
+        </p>
+        <textarea id="visionInput" rows="8" 
+              class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Example: A command-line tool that helps developers manage their projects..."></textarea>
+        <div class="flex items-center justify-between mt-3">
+            <button id="saveVisionBtn"
+                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">
+            💾 Save Vision
+            </button>
+            <span id="visionStatus" class="text-sm text-gray-500"></span>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="mt-4 p-3 bg-blue-50 rounded-lg">
         <p class="text-sm text-blue-800">
             {% if phase == 'idea' %}
@@ -366,6 +386,8 @@
 
 {% block scripts %}
 <script>
+const projectId = "{{ project_id }}";
+
 // Model dropdown toggle
 function toggleModelDropdowns() {
     const dropdowns = document.getElementById('modelDropdowns');
@@ -607,5 +629,66 @@ async function runAgent(agentType) {
 
 // Load profiles on page load
 document.addEventListener('DOMContentLoaded', loadProfiles);
+
+
+// Vision Management
+async function saveVision() {
+    const vision = document.getElementById('visionInput').value.trim();
+    const btn = document.getElementById('saveVisionBtn');
+    const status = document.getElementById('visionStatus');
+    
+    if (!vision) {
+        status.textContent = '⚠️ Vision cannot be empty';
+        status.className = 'text-sm text-red-600';
+        return;
+    }
+    
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+    status.textContent = '';
+    
+    try {
+        const response = await fetch(`/api/save-vision/${projectId}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({vision})
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            status.textContent = '✅ Vision saved! You can now run PRP Agent.';
+            status.className = 'text-sm text-green-600';
+        } else {
+            status.textContent = `❌ Error: ${data.error}`;
+            status.className = 'text-sm text-red-600';
+        }
+    } catch (error) {
+        status.textContent = `❌ Error: ${error}`;
+        status.className = 'text-sm text-red-600';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Save Vision';
+    }
+}
+
+// Load vision on page load
+document.addEventListener('DOMContentLoaded', async function() {
+    if ('{{ state.phase }}' === 'idea') {
+        try {
+            const response = await fetch(`/api/get-vision/${projectId}`);
+            const data = await response.json();
+            if (data.success && data.vision) {
+                document.getElementById('visionInput').value = data.vision;
+            }
+        } catch (error) {
+            console.error('Failed to load vision:', error);
+        }
+    }
+});
+
+// Attach event listeners after DOM loads
+document.getElementById('saveVisionBtn')?.addEventListener('click', saveVision);
+
 </script>
 {% endblock %}

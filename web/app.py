@@ -1839,6 +1839,84 @@ def backup_prp_to_history(project_id, prp_file):
 
 
 # PRP ROUTES END
+
+# ============================================
+# VISION MANAGEMENT ROUTES
+# ============================================
+# Vision Management Routes
+# Add to app.py
+
+@app.route('/api/save-vision/<project_id>', methods=['POST'])
+def save_vision(project_id):
+    """Save product vision to prp.md"""
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    try:
+        data = request.get_json()
+        vision = data.get('vision', '').strip()
+        
+        if not vision:
+            return jsonify({'success': False, 'error': 'Vision cannot be empty'}), 400
+        
+        project_dir = os.path.join(PROJECTS_DIR, project_id)
+        prp_file = os.path.join(project_dir, 'prp', 'prp.md')
+        
+        # Write vision to prp.md
+        with open(prp_file, 'w', encoding='utf-8') as f:
+            f.write(f"# Product Vision\n\n{vision}\n")
+        
+        # Update state - add vision field
+        state = load_project_state(project_id)
+        if 'meta' not in state:
+            state['meta'] = {}
+        state['meta']['has_vision'] = True
+        save_project_state(project_id, state)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Vision saved successfully'
+        })
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/get-vision/<project_id>')
+def get_vision(project_id):
+    """Get current vision from prp.md"""
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    try:
+        project_dir = os.path.join(PROJECTS_DIR, project_id)
+        prp_file = os.path.join(project_dir, 'prp', 'prp.md')
+        
+        if not os.path.exists(prp_file):
+            return jsonify({'success': True, 'vision': ''})
+        
+        with open(prp_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Extract vision (simple: everything in prp.md if phase is 'idea')
+        state = load_project_state(project_id)
+        if state.get('phase') == 'idea':
+            # Remove "# Product Vision" header if present
+            vision = content.replace('# Product Vision', '').strip()
+        else:
+            vision = ''
+        
+        return jsonify({
+            'success': True,
+            'vision': vision
+        })
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# ============================================
+# VISION MANAGEMENT ROUTES
+# ============================================
 # ============================================
 # ============================================
 # PRP VERSIONS LIST - BACKEND
