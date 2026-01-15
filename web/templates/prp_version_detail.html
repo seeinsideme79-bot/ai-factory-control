@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block title %}PRP Version {{ version.version }} - {{ project_id }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-800">PRP Version {{ version.version }}</h1>
+            <p class="text-gray-600">{{ project_id }}</p>
+        </div>
+        <div class="flex items-center space-x-2">
+            <a href="/project/{{ project_id }}/prp/versions" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-sm">
+                ← Back to Versions
+            </a>
+        </div>
+    </div>
+
+    <!-- Version Info -->
+    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+                <div class="text-sm text-gray-500">Version</div>
+                <div class="text-lg font-bold">{{ version.version }}</div>
+            </div>
+            <div>
+                <div class="text-sm text-gray-500">Date</div>
+                <div class="text-lg">{{ version.date[:19] if version.date != 'N/A' else 'N/A' }}</div>
+            </div>
+            <div>
+                <div class="text-sm text-gray-500">Model Used</div>
+                <div class="text-sm font-mono">{{ version.model }}</div>
+            </div>
+            <div>
+                <div class="text-sm text-gray-500">Status</div>
+                {% if version.is_current %}
+                <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">Current</span>
+                {% else %}
+                <span class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-medium">Historical</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if previous_version %}
+    <!-- AI Summary Section -->
+    <div class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg shadow-sm p-6 mb-6">
+        <div class="flex items-start justify-between mb-4">
+            <h2 class="text-xl font-bold text-gray-800">🤖 AI Change Summary</h2>
+            <button onclick="generateSummary()" id="summaryBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm">
+                Generate Summary
+            </button>
+        </div>
+        <div id="summaryContent" class="text-gray-600">
+            <p class="italic">Click "Generate Summary" to analyze changes between versions using AI.</p>
+        </div>
+        <div id="summaryLoading" class="hidden">
+            <div class="flex items-center space-x-2">
+                <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                <span class="text-sm text-gray-600">Analyzing changes with {{ version.model }}...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Diff View -->
+    <div class="bg-white rounded-lg shadow-sm mb-6">
+        <div class="border-b border-gray-200 px-6 py-4">
+            <h2 class="text-xl font-bold text-gray-800">📊 Changes from v{{ previous_version.version }}</h2>
+        </div>
+        <div class="p-6">
+            <div id="diffContent" class="font-mono text-sm">
+                <div class="text-gray-500 italic">Loading diff...</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Full Content -->
+    <div class="bg-white rounded-lg shadow-sm">
+        <div class="border-b border-gray-200 px-6 py-4">
+            <h2 class="text-xl font-bold text-gray-800">📄 Full PRP Content</h2>
+        </div>
+        <div class="p-6">
+            <div id="prpContent" class="prose max-w-none">
+                <!-- Markdown will be rendered here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/diff/dist/diff.min.js"></script>
+<script>
+const projectId = "{{ project_id }}";
+const version = "{{ version.version }}";
+const currentContent = {{ version.content | tojson }};
+{% if previous_version %}
+const previousContent = {{ previous_version.content | tojson }};
+const previousVersion = "{{ previous_version.version }}";
+const modelUsed = "{{ version.model }}";
+{% endif %}
+
+// Render markdown
+document.addEventListener('DOMContentLoaded', function() {
+    const rendered = marked.parse(currentContent);
+    document.getElementById('prpContent').innerHTML = rendered;
+    
+    {% if previous_version %}
+    // Generate diff
+    generateDiff();
+    {% endif %}
+});
+
+{% if previous_version %}
+function generateDiff() {
+    const diff = Diff.diffLines(previousContent, currentContent);
+    let diffHtml = '<div class="space-y-1">';
+    
+    diff.forEach(part => {
+        const lines = part.value.split('\n').filter(l => l.trim());
+        lines.forEach(line => {
+            if (part.added) {
+                diffHtml += `<div class="bg-green-50 border-l-4 border-green-500 pl-4 py-1">
+                    <span class="text-green-700">+ ${escapeHtml(line)}</span>
+                </div>`;
+            } else if (part.removed) {
+                diffHtml += `<div class="bg-red-50 border-l-4 border-red-500 pl-4 py-1">
+                    <span class="text-red-700">- ${escapeHtml(line)}</span>
+                </div>`;
+            } else {
+                // Show only first 2 and last 2 unchanged lines
+                if (lines.indexOf(line) < 2 || lines.indexOf(line) >= lines.length - 2) {
+                    diffHtml += `<div class="pl-4 py-1 text-gray-500">${escapeHtml(line)}</div>`;
+                } else if (lines.indexOf(line) === 2) {
+                    diffHtml += `<div class="pl-4 py-1 text-gray-400 italic">... ${lines.length - 4} unchanged lines ...</div>`;
+                }
+            }
+        });
+    });
+    
+    diffHtml += '</div>';
+    document.getElementById('diffContent').innerHTML = diffHtml;
+}
+
+async function generateSummary() {
+    const btn = document.getElementById('summaryBtn');
+    const content = document.getElementById('summaryContent');
+    const loading = document.getElementById('summaryLoading');
+    
+    btn.disabled = true;
+    content.classList.add('hidden');
+    loading.classList.remove('hidden');
+    
+    try {
+        const response = await fetch(`/api/prp-diff-summary/${projectId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                old_version: previousVersion,
+                new_version: version,
+                old_content: previousContent,
+                new_content: currentContent
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            content.innerHTML = `
+                <div class="prose max-w-none">
+                    ${marked.parse(data.summary)}
+                </div>
+            `;
+        } else {
+            content.innerHTML = `<p class="text-red-600">Error: ${data.error}</p>`;
+        }
+    } catch (error) {
+        content.innerHTML = `<p class="text-red-600">Error: ${error}</p>`;
+    } finally {
+        loading.classList.add('hidden');
+        content.classList.remove('hidden');
+        btn.disabled = false;
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+{% endif %}
+</script>
+
+<style>
+.prose {
+    color: #374151;
+    line-height: 1.75;
+}
+.prose h1 { font-size: 2.25em; font-weight: 800; margin-top: 0; margin-bottom: 0.8888889em; }
+.prose h2 { font-size: 1.5em; font-weight: 700; margin-top: 2em; margin-bottom: 1em; }
+.prose h3 { font-size: 1.25em; font-weight: 600; margin-top: 1.6em; margin-bottom: 0.6em; }
+.prose p { margin-top: 1.25em; margin-bottom: 1.25em; }
+.prose ul, .prose ol { margin-top: 1.25em; margin-bottom: 1.25em; padding-left: 1.625em; }
+.prose li { margin-top: 0.5em; margin-bottom: 0.5em; }
+.prose code { background-color: #f3f4f6; padding: 0.2em 0.4em; border-radius: 0.25rem; font-size: 0.875em; }
+.prose pre { background-color: #1f2937; color: #f9fafb; padding: 1em; border-radius: 0.5rem; overflow-x: auto; }
+.prose pre code { background-color: transparent; padding: 0; color: inherit; }
+</style>
+{% endblock %}

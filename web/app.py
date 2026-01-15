@@ -1461,5 +1461,580 @@ def preview_api_proxy(project_id, api_path):
         return jsonify({'error': str(e)}), 500
 
 
+# ============================================
+# PRP REVIEW WORKFLOW ROUTES
+# ============================================
+# Aşağıdaki kodları app.py dosyasına ekleyin
+# "if __name__ == '__main__'" satırından ÖNCE
+
+@app.route('/project/<project_id>/prp')
+def prp_page(project_id):
+    """PRP görüntüleme ve düzenleme sayfası"""
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    
+    # State'i yükle
+    state = load_project_state(project_id)
+    if not state:
+        flash('Project not found', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # PRP dosyasını oku
+    project_dir = os.path.join(PROJECTS_DIR, project_id)
+    prp_file = os.path.join(project_dir, 'prp', 'prp.md')
+    
+    prp_content = ""
+    prp_version = state.get('version', {}).get('prp', '0.1')
+    # Sadece 'prp' phase'de editable
+    is_editable = state.get('phase') == 'prp'
+    
+    if os.path.exists(prp_file):
+        with open(prp_file, 'r', encoding='utf-8') as f:
+            prp_content = f.read()
+    else:
+        prp_content = "# Product Requirement Prompt\n\n*PRP not yet created*"
+    
+    return render_template('prp_editor.html',
+                         project_id=project_id,
+                         state=state,
+                         prp_content=prp_content,
+                         prp_version=prp_version,
+                         is_editable=is_editable)
+
+
+@app.route('/api/prp/<project_id>', methods=['GET'])
+def get_prp_content(project_id):
+    """PRP içeriğini JSON olarak döndür"""
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    project_dir = os.path.join(PROJECTS_DIR, project_id)
+    prp_file = os.path.join(project_dir, 'prp', 'prp.md')
+    
+    if not os.path.exists(prp_file):
+        return jsonify({
+            'success': False,
+            'error': 'PRP file not found'
+        }), 404
+    
+    try:
+        with open(prp_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        state = load_project_state(project_id)
+        version = state.get('version', {}).get('prp', '0.1')
+        
+        return jsonify({
+            'success': True,
+            'content': content,
+            'version': version
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/prp/<project_id>', methods=['POST'])
+def save_prp_content(project_id):
+    """PRP içeriğini kaydet"""
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    data = request.get_json()
+    new_content = data.get('content', '')
+    
+    if not new_content.strip():
+        return jsonify({
+            'success': False,
+            'error': 'Content cannot be empty'
+        }), 400
+    
+    project_dir = os.path.join(PROJECTS_DIR, project_id)
+    prp_file = os.path.join(project_dir, 'prp', 'prp.md')
+    
+    try:
+        
+        # Yeni içeriği kaydet (backup YAPMA - sadece approve'da backup)
+        with open(prp_file, 'w', encoding='utf-8') as f:
+            f.write(new_content)
+        
+        return jsonify({
+            'success': True,
+            'message': 'PRP saved successfully'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/prp-history/<project_id>', methods=['GET'])
+def get_prp_history(project_id):
+    """PRP version history'sini döndür"""
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    project_dir = os.path.join(PROJECTS_DIR, project_id)
+    history_file = os.path.join(project_dir, 'prp', 'prp_history.md')
+    
+    if not os.path.exists(history_file):
+        return jsonify({
+            'success': True,
+            'history': [],
+            'message': 'No history available'
+        })
+    
+    try:
+        with open(history_file, 'r', encoding='utf-8') as f:
+            history_content = f.read()
+        
+        # History'yi parse et
+        versions = []
+        current_version = None
+        current_content = []
+        
+        for line in history_content.split('\n'):
+            if line.startswith('## Version'):
+                if current_version:
+                    versions.append({
+                        'version': current_version,
+                        'content': '\n'.join(current_content)
+                    })
+                current_version = line.replace('## Version', '').strip()
+                current_content = []
+            else:
+                current_content.append(line)
+        
+        # Son version'ı ekle
+        if current_version:
+            versions.append({
+                'version': current_version,
+                'content': '\n'.join(current_content)
+            })
+        
+        return jsonify({
+            'success': True,
+            'history': versions
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/prp-approve/<project_id>', methods=['POST'])
+def approve_prp(project_id):
+    """PRP'yi onayla ve state'i güncelle"""
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    data = request.get_json()
+    bump_version = data.get('bump_version', True)
+    
+    try:
+        state = load_project_state(project_id)
+        if not state:
+            return jsonify({
+                'success': False,
+                'error': 'Project not found'
+            }), 404
+        
+        project_dir = os.path.join(PROJECTS_DIR, project_id)
+        prp_file = os.path.join(project_dir, 'prp', 'prp.md')
+        
+        # Backup mevcut PRP (version bump'tan ÖNCE)
+        if os.path.exists(prp_file):
+            backup_prp_to_history(project_id, prp_file)
+        
+        # Version'ı güncelle
+        old_version = state.get('version', {}).get('prp', '0.1')
+        if bump_version:
+            current_prp_version = old_version
+            version_parts = current_prp_version.split('.')
+            if len(version_parts) == 2:
+                major, minor = version_parts
+                new_version = f"{major}.{int(minor) + 1}"
+            else:
+                new_version = "1.0"
+            
+            if 'version' not in state:
+                state['version'] = {}
+            state['version']['prp'] = new_version
+        
+        # Phase güncelle (eğer 'prp' phase'indeyse)
+        if state.get('phase') == 'prp':
+            state['phase'] = 'development'
+            state['next_action'] = {
+                'agent': 'dev_agent',
+                'action': 'Generate code based on PRP',
+                'requires_human_approval': True
+            }
+        
+        # Last event güncelle
+        from datetime import datetime
+        state['last_event'] = {
+            'agent': 'human',
+            'action': f"PRP v{state['version']['prp']} approved",
+            'timestamp': datetime.utcnow().isoformat() + 'Z',
+            'result': 'success',
+            'model': 'N/A'
+        }
+        
+        # State'i kaydet
+        save_project_state(project_id, state)
+        
+        # Generate AI summary (non-blocking, best effort)
+        try:
+            generate_prp_summary(project_id, old_version, state['version']['prp'])
+        except Exception as e:
+            print(f"Warning: Could not generate AI summary: {e}", flush=True)
+        
+        return jsonify({
+            'success': True,
+            'message': 'PRP approved and state updated',
+            'new_version': state['version']['prp'],
+            'new_phase': state['phase']
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+def generate_prp_summary(project_id, old_version, new_version):
+    """Generate AI summary for PRP version changes"""
+    import requests
+    
+    project_dir = os.path.join(PROJECTS_DIR, project_id)
+    history_file = os.path.join(project_dir, 'prp', 'prp_history.md')
+    
+    if not os.path.exists(history_file):
+        return
+    
+    # Parse history to get versions
+    versions = parse_prp_history(project_id)
+    if len(versions) < 2:
+        return  # No previous version to compare
+    
+    # Find old and new version content
+    old_content = None
+    new_content = None
+    
+    for v in versions:
+        if v['version'] == old_version:
+            old_content = v['content']
+        if v['version'] == new_version:
+            new_content = v['content']
+    
+    if not old_content or not new_content:
+        return
+    
+    # Load LLM config
+    state = load_project_state(project_id)
+    model_name = state.get('agent_models', {}).get('prp_agent', 'gemma-free')
+    
+    profiles_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'llm.profiles.yaml')
+    with open(profiles_path, 'r') as f:
+        profiles_data = yaml.safe_load(f)
+    
+    profile = profiles_data['profiles'].get(model_name, profiles_data['profiles']['gemma-free'])
+    
+    # Generate summary prompt
+    summary_prompt = f"""Compare these two PRP versions and summarize the key changes in 3-5 bullet points.
+
+Previous Version (v{old_version}):
+{old_content[:3000]}
+
+Current Version (v{new_version}):
+{new_content[:3000]}
+
+Provide ONLY a bulleted list of key changes (no introduction, no conclusion). Focus on:
+- New sections or features added
+- Removed sections or features
+- Significant content changes
+- Scope or requirement modifications
+
+Format: Use markdown bullet points (- or *)."""
+
+    # Call LLM API
+    api_url = "https://openrouter.ai/api/v1/chat/completions"
+    api_key = os.environ.get('OPENROUTER_API_KEY')
+    
+    response = requests.post(
+        api_url,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        },
+        json={
+            "model": profile['model'],
+            "messages": [
+                {"role": "user", "content": summary_prompt}
+            ],
+            "max_tokens": 300,
+            "temperature": 0.3
+        },
+        timeout=30
+    )
+    
+    if response.status_code != 200:
+        print(f"LLM API error: {response.status_code}", flush=True)
+        return
+    
+    result = response.json()
+    summary = result['choices'][0]['message']['content'].strip()
+    
+    # Append summary to history file
+    with open(history_file, 'r', encoding='utf-8') as f:
+        history_content = f.read()
+    
+    # Insert summary after the version header
+    version_header = f"## Version {new_version}"
+    if version_header in history_content:
+        parts = history_content.split(version_header, 1)
+        if len(parts) == 2:
+            # Find first newline after header
+            header_and_date = parts[1].split('\n', 1)
+            if len(header_and_date) == 2:
+                summary_section = f"\n### 🤖 AI Change Summary\n\n{summary}\n"
+                new_history = parts[0] + version_header + '\n' + header_and_date[0] + summary_section + '\n' + header_and_date[1]
+                
+                with open(history_file, 'w', encoding='utf-8') as f:
+                    f.write(new_history)
+                
+                print(f"AI summary generated for PRP v{new_version}", flush=True)
+
+
+
+def backup_prp_to_history(project_id, prp_file):
+    """PRP'yi history dosyasına backup al"""
+    project_dir = os.path.join(PROJECTS_DIR, project_id)
+    history_file = os.path.join(project_dir, 'prp', 'prp_history.md')
+    
+    # Mevcut state'i al
+    state = load_project_state(project_id)
+    current_version = state.get('version', {}).get('prp', '0.1')
+    
+    # Mevcut PRP'yi oku
+    with open(prp_file, 'r', encoding='utf-8') as f:
+        current_prp = f.read()
+    
+    # History dosyası yoksa oluştur
+    if not os.path.exists(history_file):
+        with open(history_file, 'w', encoding='utf-8') as f:
+            f.write("# PRP Version History\n\n")
+    
+    # History'ye ekle
+    from datetime import datetime
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    history_entry = f"\n\n## Version {current_version} - {timestamp}\n\n{current_prp}\n"
+    
+    with open(history_file, 'a', encoding='utf-8') as f:
+        f.write(history_entry)
+
+
+# PRP ROUTES END
+# ============================================
+# ============================================
+# PRP VERSIONS LIST - BACKEND
+# File: web/app.py
+# ============================================
+# Bu kodu app.py'nin PRP routes bölümüne ekleyin
+
+@app.route('/project/<project_id>/prp/versions')
+def prp_versions_list(project_id):
+    """PRP version listesi sayfası"""
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    
+    state = load_project_state(project_id)
+    if not state:
+        flash('Project not found', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # History dosyasını parse et
+    project_dir = os.path.join(PROJECTS_DIR, project_id)
+    history_file = os.path.join(project_dir, 'prp', 'prp_history.md')
+    
+    versions = []
+    if os.path.exists(history_file):
+        versions = parse_prp_history(history_file, state)
+    
+    # Current PRP version'ı da ekle (en son)
+    prp_file = os.path.join(project_dir, 'prp', 'prp.md')
+    if os.path.exists(prp_file):
+        with open(prp_file, 'r', encoding='utf-8') as f:
+            current_content = f.read()
+        
+        current_version = {
+            'version': state.get('version', {}).get('prp', '0.1'),
+            'date': state.get('last_event', {}).get('timestamp', 'N/A'),
+            'phase': state.get('phase', 'unknown'),
+            'agent': state.get('last_event', {}).get('agent', 'unknown'),
+            'model': state.get('last_event', {}).get('model', 'N/A'),
+            'content': current_content,
+            'is_current': True
+        }
+        versions.insert(0, current_version)  # En başa ekle
+    
+    return render_template('prp_versions.html',
+                         project_id=project_id,
+                         state=state,
+                         versions=versions)
+
+
+def parse_prp_history(history_file, state):
+    """
+    prp_history.md dosyasını parse et
+    Return: List of version dictionaries
+    """
+    versions = []
+    
+    with open(history_file, 'r', encoding='utf-8') as f:
+        content = f.read()
+    
+    # "## Version" ile başlayan bölümleri bul
+    import re
+    pattern = r'^## Version ([\d.]+) - ([\d-]+ [\d:]+)'
+    
+    lines = content.split('\n')
+    current_version = None
+    current_content = []
+    
+    for line in lines:
+        match = re.match(pattern, line)
+        if match:
+            # Önceki version'ı kaydet
+            if current_version:
+                versions.append({
+                    'version': current_version['version'],
+                    'date': current_version['date'],
+                    'content': '\n'.join(current_content).strip(),
+                    'is_current': False,
+                    'phase': 'N/A',  # History'de phase yok, bilmiyoruz
+                    'agent': 'prp_agent',  # Varsayılan
+                    'model': 'N/A'  # History'de model yok
+                })
+                current_content = []
+            
+            # Yeni version başla
+            current_version = {
+                'version': match.group(1),
+                'date': match.group(2)
+            }
+        else:
+            # İçerik satırı
+            if current_version:
+                # Check for AI summary section
+                if line.startswith('### 🤖 AI Change Summary'):
+                    current_version['has_summary'] = True
+                    current_version['summary'] = []
+                elif 'has_summary' in current_version and line.strip() and not line.startswith('##'):
+                # Collect summary lines until next section
+                    if line.startswith('###') and '🤖' not in line:
+                        current_version['has_summary'] = False  # End of summary
+                    else:
+                        current_version['summary'].append(line)
+    
+                    current_content.append(line)
+    
+    # Son version'ı ekle
+    if current_version:
+        versions.append({
+            'version': current_version['version'],
+            'date': current_version['date'],
+            'content': '\n'.join(current_content).strip(),
+            'is_current': False,
+            'phase': 'N/A',
+            'agent': 'prp_agent',
+            'model': 'N/A',
+            'summary': '\n'.join(current_version.get('summary', [])).strip() if 'summary' in current_version else None
+        })
+    
+    # Duplicate'leri kaldır (aynı version + aynı tarih)
+    seen = set()
+    unique_versions = []
+    for v in versions:
+        key = f"{v['version']}-{v['date']}"
+        if key not in seen:
+            seen.add(key)
+            unique_versions.append(v)
+    
+    # Tarihe göre sırala (yeniden eskiye)
+    unique_versions.sort(key=lambda x: x['date'], reverse=True)
+    
+    return unique_versions
+
+
+# ============================================
+# Helper: Get version by number
+# ============================================
+@app.route('/project/<project_id>/prp/version/<version_number>')
+def prp_version_detail(project_id, version_number):
+    """Specific version detail sayfası"""
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    
+    state = load_project_state(project_id)
+    if not state:
+        flash('Project not found', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # History'den version bul
+    project_dir = os.path.join(PROJECTS_DIR, project_id)
+    history_file = os.path.join(project_dir, 'prp', 'prp_history.md')
+    
+    versions = []
+    if os.path.exists(history_file):
+        versions = parse_prp_history(history_file, state)
+    
+    # Current version'ı da ekle
+    prp_file = os.path.join(project_dir, 'prp', 'prp.md')
+    current_prp_version = state.get('version', {}).get('prp', '0.1')
+    
+    if version_number == current_prp_version and os.path.exists(prp_file):
+        with open(prp_file, 'r', encoding='utf-8') as f:
+            current_content = f.read()
+        
+        selected_version = {
+            'version': current_prp_version,
+            'date': state.get('last_event', {}).get('timestamp', 'N/A'),
+            'content': current_content,
+            'is_current': True,
+            'model': state.get('last_event', {}).get('model', 'N/A')
+        }
+    else:
+        # History'den bul
+        selected_version = next((v for v in versions if v['version'] == version_number), None)
+    
+    if not selected_version:
+        flash(f'Version {version_number} not found', 'error')
+        return redirect(url_for('prp_versions_list', project_id=project_id))
+    
+    # Önceki version'ı bul (diff için)
+    all_versions = versions.copy()
+    if selected_version.get('is_current'):
+        all_versions.insert(0, selected_version)
+    
+    # Tarihe göre sırala
+    all_versions.sort(key=lambda x: x.get('date', ''), reverse=True)
+    
+    current_idx = next((i for i, v in enumerate(all_versions) if v['version'] == version_number), None)
+    previous_version = all_versions[current_idx + 1] if current_idx is not None and current_idx + 1 < len(all_versions) else None
+    
+    return render_template('prp_version_detail.html',
+                         project_id=project_id,
+                         state=state,
+                         version=selected_version,
+                         previous_version=previous_version)
+
+
+# END PRP VERSIONS
+# ============================================
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)
