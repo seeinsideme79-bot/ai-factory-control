@@ -86,7 +86,8 @@ class PRPAgent(BaseAgent):
                 ('prp/prp.md', output.strip())
             ],
             'state_updates': state_updates,
-            'next_phase': 'development',
+            'next_phase': 'prp',
             'next_agent': 'dev_agent',
-            'next_action': 'implement code based on PRP'
+            'next_action': 'Review and approve PRP before development',
+            'requires_human_approval': True
         }
