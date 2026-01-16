@@ -262,6 +262,21 @@
                     </label>
                 </div>
             </div>
+
+            <!-- PRP Auto-Update Section -->
+            <div id="prp-update-section" class="hidden mb-6 p-4 bg-purple-50 rounded-lg border-2 border-purple-200">
+                <h3 class="text-lg font-bold text-purple-900 mb-3">🔧 Auto-Update PRP</h3>
+                <p class="text-sm text-purple-700 mb-3">
+                    AI detected PRP-related issues. You can automatically apply suggestions to your PRP document.
+                </p>
+                <button onclick="showPRPDiffPreview()" class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold">
+                    📝 Preview PRP Changes
+                </button>
+            </div>
+
+            <div id="prp-button-hint" class="hidden mb-3 text-sm text-purple-700 bg-purple-50 p-3 rounded border border-purple-200">
+                💡 Tip: Review PRP changes above before confirming rejection
+            </div>
             
             <div class="flex space-x-3">
                 <button onclick="closeRejectionModal()" class="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold">
@@ -278,6 +293,38 @@
             <h3 class="text-xl font-bold text-red-600 mb-2">Analysis Failed</h3>
             <p id="error-message" class="text-gray-600 mb-4"></p>
             <button onclick="closeRejectionModal()" class="px-6 py-2 bg-gray-200 rounded-lg">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- PRP Diff Modal -->
+<div id="prp-diff-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <h2 class="text-2xl font-bold mb-4">🤖 PRP Auto-Update Preview</h2>
+        
+        <!-- Loading State -->
+        <div id="prp-diff-loading" class="text-center py-8">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+            <p class="mt-4 text-gray-600">Analyzing suggestions...</p>
+        </div>
+        
+        <!-- Content Display -->
+        <div id="prp-diff-content" class="hidden">
+            <div class="mb-6 p-4 bg-purple-50 rounded-lg">
+                <h3 class="font-semibold text-purple-900 mb-2">📝 New Content to be Added:</h3>
+                <div id="prp-new-content" class="prose max-w-none"></div>
+            </div>
+        </div>
+        
+        <!-- Error State -->
+        <div id="prp-diff-error" class="hidden mb-4 p-4 bg-red-50 rounded-lg">
+            <p class="text-red-800"><span id="prp-error-message"></span></p>
+        </div>
+        
+        <!-- Actions -->
+        <div class="flex justify-end space-x-3 mt-6">
+            <button onclick="closePRPDiffModal()" class="px-6 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Cancel</button>
+            <button onclick="applyPRPChanges()" class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">✅ Apply Changes</button>
         </div>
     </div>
 </div>
@@ -584,8 +631,19 @@ function displayAnalysis(analysis) {
                 '<span class="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-semibold">BOTH</span>';
             list.innerHTML += '<div class="p-3 bg-gray-50 rounded border"><div class="flex justify-between"><div class="flex-1"><div class="font-semibold">'+t.test+'</div><div class="text-sm text-gray-600 mt-1">'+t.reason+'</div></div>'+badge+'</div></div>';
         });
+        // Show PRP auto-update section if PRP issues detected
+        const hasPRPIssues = analysis.test_analysis && analysis.test_analysis.some(t => t.category === 'prp');
+        if (hasPRPIssues) {
+            document.getElementById('prp-update-section').classList.remove('hidden');
+            document.getElementById('prp-button-hint').classList.remove('hidden');
+        } else {
+            document.getElementById('prp-update-section').classList.add('hidden');
+            document.getElementById('prp-button-hint').classList.add('hidden');
+        }
     }
 }
+
+
 
 function showError(msg) {
     document.getElementById('modal-loading').classList.add('hidden');
@@ -618,6 +676,89 @@ function confirmRejection() {
     .then(d => { if (d.success) { alert('Rejected! Next: '+phase.value); window.location.href = '/project/{{ project_id }}'; } else alert('Error'); })
     .catch(e => alert('Failed'));
 }
+
+// ============================================
+// PRP AUTO-UPDATE FUNCTIONS
+// ============================================
+let prpDiffData = null;
+
+function showPRPDiffPreview() {
+    const projectId = '{{ project_id }}';
+    
+    // Show loading
+    document.getElementById('prp-diff-modal').classList.remove('hidden');
+    document.getElementById('prp-diff-content').innerHTML = '<div class="text-center py-8"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div><p class="mt-4 text-gray-600">Generating PRP suggestions...</p></div>';
+    
+    // Fetch suggestions
+    fetch('/api/parse-prp-suggestions/' + projectId, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ai_analysis: aiAnalysisData})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            displayPRPDiff(data.suggestions);
+        } else {
+            document.getElementById('prp-diff-content').innerHTML = '<div class="text-red-600">Error: ' + data.error + '</div>';
+        }
+    })
+    .catch(e => {
+        document.getElementById('prp-diff-content').innerHTML = '<div class="text-red-600">Network error</div>';
+    });
+}
+
+
+function displayPRPDiff(diff) {
+    document.getElementById('prp-diff-loading').classList.add('hidden');
+    document.getElementById('prp-diff-content').classList.remove('hidden');
+    
+    // Show only NEW content (what will be added)
+    const addedContent = diff.new.substring(diff.old.length);
+    prpDiffData = diff;  // Store for later use in applyPRPChanges()
+    document.getElementById('prp-new-content').innerHTML = marked.parse(addedContent);
+}
+
+function showPRPError(msg) {
+    document.getElementById('prp-diff-loading').classList.add('hidden');
+    document.getElementById('prp-diff-error').classList.remove('hidden');
+    document.getElementById('prp-error-message').textContent = msg;
+}
+
+function closePRPDiffModal() {
+    document.getElementById('prp-diff-modal').classList.add('hidden');
+    prpDiffData = null;		
+}
+
+function applyPRPChanges() {
+    if (!prpDiffData) {
+        alert('No changes to apply');
+        return;
+    }
+    
+    if (!confirm('Apply these changes to your PRP? You can edit them afterwards in PRP Editor.')) {
+        return;
+    }
+    
+    fetch('/api/apply-prp-changes/{{ project_id }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            updated_prp: prpDiffData.new
+        })
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) {
+            alert('PRP updated! Redirecting to PRP Editor...');
+            window.location.href = d.redirect;
+        } else {
+            alert('Error: ' + (d.error || 'Unknown error'));
+        }
+    })
+    .catch(e => alert('Failed: ' + e.message));
+}
+
 </script>
 
 {% endblock %}

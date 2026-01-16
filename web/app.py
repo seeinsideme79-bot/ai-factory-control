@@ -2112,7 +2112,104 @@ def prp_version_detail(project_id, version_number):
                          previous_version=previous_version)
 
 
+# ============================================
+# PRP AUTO-UPDATE ENDPOINTS
+# ============================================
+
+@app.route('/api/parse-prp-suggestions/<project_id>', methods=['POST'])
+def parse_prp_suggestions(project_id):
+    """Extract PRP-specific issues from AI analysis"""
+    try:
+        data = request.get_json()
+        ai_analysis = data.get('ai_analysis', {})
+        
+        if not ai_analysis or 'test_analysis' not in ai_analysis:
+            return jsonify({'success': False, 'error': 'No AI analysis data'})
+        
+        # Filter PRP category issues
+        prp_issues = [t for t in ai_analysis['test_analysis'] if t.get('category') == 'prp']
+        
+        if not prp_issues:
+            return jsonify({'success': False, 'error': 'No PRP issues found'})
+        
+        # Build suggestions markdown
+        suggestions = "## 🤖 AI-Suggested PRP Updates\n\n"
+        suggestions += "Based on test failures, the following improvements are recommended:\n\n"
+        
+        for i, issue in enumerate(prp_issues, 1):
+            suggestions += f"{i}. **{issue['test']}**\n"
+            suggestions += f"   - Issue: {issue['reason']}\n\n"
+        
+        if ai_analysis.get('reasoning'):
+            suggestions += f"### Analysis Summary\n\n{ai_analysis['reasoning']}\n"
+        
+        return jsonify({'success': True, 'suggestions': suggestions})
+        
+    except Exception as e:
+        print(f"Error parsing PRP suggestions: {e}", flush=True)
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/preview-prp-diff/<project_id>', methods=['POST'])
+def preview_prp_diff(project_id):
+    """Generate diff preview for PRP changes"""
+    try:
+        data = request.get_json()
+        suggestions = data.get('suggestions', '')
+        
+        project_dir = os.path.join(PROJECTS_DIR, project_id)
+        prp_path = os.path.join(project_dir, 'prp', 'prp.md')
+        
+        if not os.path.exists(prp_path):
+            return jsonify({'success': False, 'error': 'PRP file not found'})
+        
+        # Load current PRP
+        with open(prp_path, 'r') as f:
+            old_prp = f.read()
+        
+        # Generate new version (append suggestions)
+        new_prp = old_prp.rstrip() + "\n\n---\n\n" + suggestions
+        
+        return jsonify({
+            'success': True,
+            'diff': {
+                'old': old_prp,
+                'new': new_prp
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error generating PRP diff: {e}", flush=True)
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/apply-prp-changes/<project_id>', methods=['POST'])
+def apply_prp_changes(project_id):
+    """Apply PRP changes to file"""
+    try:
+        data = request.get_json()
+        updated_prp = data.get('updated_prp', '')
+        
+        if not updated_prp:
+            return jsonify({'success': False, 'error': 'No content provided'})
+        
+        project_dir = os.path.join(PROJECTS_DIR, project_id)
+        prp_path = os.path.join(project_dir, 'prp', 'prp.md')
+        
+        # Write updated PRP
+        with open(prp_path, 'w') as f:
+            f.write(updated_prp)
+        
+        return jsonify({
+            'success': True,
+            'redirect': f'/project/{project_id}/prp'
+        })
+        
+    except Exception as e:
+        print(f"Error applying PRP changes: {e}", flush=True)
+        return jsonify({'success': False, 'error': str(e)})
+
+
 # END PRP VERSIONS
 # ============================================
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)
+
