@@ -715,7 +715,7 @@ Return ONLY valid JSON:
 
         print(f"DEBUG - LLM content (first 200 chars): {content[:200]}")
 
-        content = re.sub(r'```json\s*|\s*```', '', content).strip()
+        content = re.sub(r'^```json\s*|\s*```$', '', content, flags=re.MULTILINE).strip()
 
         # Clean markdown code fences
         import re

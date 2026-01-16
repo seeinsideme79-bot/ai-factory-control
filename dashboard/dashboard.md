@@ -1,6 +1,6 @@
 # AI Factory Dashboard
 
-**Son Güncelleme:** 2026-01-15 21:32
+**Son Güncelleme:** 2026-01-16 15:09
 
 ## Proje Durumları
 
@@ -8,7 +8,9 @@
 |-------|-------|---------|-----------|-------------|----------|
 | product-orchestrator-test | ❓ | ❓ | - | State dosyası bulunamadı | - |
 | product-counter-cli | ❓ | ❓ | - | State dosyası bulunamadı | - |
+| product-counter-v2 | test | 🟢 No | - |  | 🤖 Agent |
 
 ## Özet
 
-- **Toplam Proje:** 2
+- **Toplam Proje:** 3
+- **test:** 1

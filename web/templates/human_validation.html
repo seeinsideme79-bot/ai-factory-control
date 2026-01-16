@@ -573,7 +573,8 @@ function displayAnalysis(analysis) {
     document.getElementById('modal-content').classList.remove('hidden');
     document.getElementById('ai-recommendation').textContent = analysis.recommendation === 'prp' ? 'Return to PRP Phase' : 'Return to Development Phase';
     document.getElementById('ai-reasoning').textContent = analysis.reasoning;
-    document.querySelector('input[value="'+analysis.recommendation+'"]').checked = true;
+    const recommendationInput = document.querySelector('input[value="'+analysis.recommendation+'"]');
+    if (recommendationInput) recommendationInput.checked = true;
     const list = document.getElementById('test-analysis-list');
     list.innerHTML = '';
     if (analysis.test_analysis) {
