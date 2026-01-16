@@ -1,1 +1,6 @@
 projects: []
+
+  - id: product-todo-list
+    repo: https://github.com/seeinsideme79-bot/product-todo-list
+    phase: idea
+    created_at: 2026-01-16
