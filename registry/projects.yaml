@@ -1,18 +1,1 @@
-# AI Factory - Projects Registry
-version: "1.0"
-last_updated: 2026-01-16
-projects:
-  - id: product-orchestrator-test
-    repo: https://github.com/seeinsideme79-bot/product-orchestrator-test
-    phase: release
-    created_at: 2026-01-05
-
-  - id: product-counter-cli
-    repo: https://github.com/seeinsideme79-bot/product-counter-cli
-    phase: idea
-    created_at: 2026-01-07
-
-  - id: product-counter-v2
-    repo: https://github.com/seeinsideme79-bot/product-counter-v2
-    phase: test
-    created_at: 2026-01-15
+projects: []
