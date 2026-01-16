@@ -98,13 +98,24 @@ __pycache__/
 EOF
 
 echo "[5/6] Registry güncelleniyor..."
-cat >> "$CONTROL_PLANE_DIR/registry/projects.yaml" << EOF
 
-  - id: $PROJECT_NAME
-    repo: https://github.com/seeinsideme79-bot/$PROJECT_NAME
-    phase: idea
-    created_at: $DATE
-EOF
+# Registry'yi Python ile düzgün güncelle
+python3 << PYTHON_EOF
+import yaml
+registry_file = "$CONTROL_PLANE_DIR/registry/projects.yaml"
+with open(registry_file, 'r') as f:
+    data = yaml.safe_load(f) or {'projects': []}
+if 'projects' not in data:
+    data['projects'] = []
+data['projects'].append({
+    'id': '$PROJECT_NAME',
+    'repo': 'https://github.com/seeinsideme79-bot/$PROJECT_NAME',
+    'phase': 'idea',
+    'created_at': '$DATE'
+})
+with open(registry_file, 'w') as f:
+    yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+PYTHON_EOF
 
 echo "[6/6] Commit ve push..."
 git add .
