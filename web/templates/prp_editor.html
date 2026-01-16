@@ -258,19 +258,26 @@ async function savePRP() {
 async function loadHistory() {
     const historyList = document.getElementById('history-list');
     historyList.innerHTML = '<p class="text-gray-500">Loading...</p>';
-    
     try {
         const response = await fetch(`/api/prp-history/${projectId}`);
         const data = await response.json();
-        
         if (data.success && data.history.length > 0) {
-            let html = '<div class="space-y-4">';
+            let html = '<div class="space-y-3">';
             data.history.forEach(version => {
+                const versionNum = version.version.split(' - ')[0];
+                const versionDate = version.version.split(' - ')[1] || 'Unknown date';
                 html += `
-                    <div class="border border-gray-200 rounded-lg p-4">
-                        <h4 class="font-semibold text-gray-800 mb-2">${version.version}</h4>
-                        <div class="prose prose-sm max-w-none">
-                            ${marked.parse(version.content)}
+                    <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h4 class="font-bold text-gray-800">${versionNum}</h4>
+                                <p class="text-sm text-gray-600">${versionDate}</p>
+                            </div>
+                            <a href="/project/${projectId}/prp/version/${versionNum}" 
+                               target="_blank"
+                               class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-semibold">
+                                📄 View
+                            </a>
                         </div>
                     </div>
                 `;
