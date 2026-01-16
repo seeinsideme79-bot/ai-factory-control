@@ -677,7 +677,7 @@ async function saveVision() {
 document.addEventListener('DOMContentLoaded', async function() {
     if ('{{ state.phase }}' === 'idea') {
         try {
-            const response = await fetch(`/api/get-vision/${projectId}`);
+            const response = await fetch(`/api/get-vision/${projectId}`);            
             const data = await response.json();
             if (data.success && data.vision) {
                 document.getElementById('visionInput').value = data.vision;
